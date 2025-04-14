@@ -244,7 +244,7 @@ export async function createClientV2(payload: CreateClientPayloadV2) {
 
 // Edit a client
 export async function editClientV2(clientID: number, payload: EditClientPayloadV2) {
-  return apiV2Request<ClientDetailResponseV2>(`/clients/${clientID}/`, {
+  return apiV2Request<ClientDetailResponseV2>(`/clients/update/${clientID}/`, {
     method: 'PUT',
     body: payload,
     showSuccessToast: true,

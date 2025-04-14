@@ -50,12 +50,7 @@ export interface EntityListResponseV2 {
   entities: EntityDetailV2[];
 }
 
-// Client related types
-export interface ClientDetailV2 extends ClientBase {
-  wcCustomerProfileID: string;
-  cgCustomerProfileID: string;
-  vbcCustomerProfileID: string;
-}
+
 
 export interface ClientListItemV2 extends ClientBase {
   // Any additional fields specific to the list view
@@ -173,7 +168,7 @@ export interface NoteV2 {
 
 // Client detail response (full client view)
 export interface ClientDetailResponseV2 {
-  client: ClientDetailV2;
+  client: ClientBase;
   paymentProfiles: PaymentProfileV2[];
   transactions: TransactionV2[];
   invoices: InvoiceV2[];
@@ -208,7 +203,6 @@ export interface EditClientPayloadV2 {
 }
 
 export interface AddNotePayloadV2 {
-  clientID: number;
   note: string;
   author: string;
   important: boolean;

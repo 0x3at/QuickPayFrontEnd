@@ -62,15 +62,22 @@ export function AddNoteDialog({
 		},
 	});
 
+	// Add debug logging when dialog opens
+	React.useEffect(() => {
+		if (open) {
+			console.log('Dialog opened - Form values:', form.getValues());
+		}
+	}, [open]);
+
 	// Form submission handler
 	const onSubmit = async (values: NoteFormValues) => {
 		try {
+			// Add debug logging for form submission
+			console.log('Form submitted with values:', values);
+			console.log('Important checkbox state:', form.getValues('important'));
+			
 			// Convert clientID to number (if not already)
 			const clientIDNumber = Number(clientID);
-			console.log({
-				clientIDNumber,
-				...values
-			})
 			
 			// Ensure clientID is valid
 			if (isNaN(clientIDNumber)) {
@@ -79,11 +86,12 @@ export function AddNoteDialog({
 			
 			// Create payload for V2 API
 			const payload: AddNotePayloadV2 = {
-				clientID: clientIDNumber,
 				note: values.note,
 				important: values.important,
 				author: values.author
 			};
+			
+			console.log('Final API payload:', payload);
 			
 			// Call the V2 API
 			await addClientNoteV2(clientIDNumber, payload);
@@ -106,6 +114,12 @@ export function AddNoteDialog({
 			console.error("Failed to add note:", error);
 			toast.error("Failed to add note. Please try again.");
 		}
+	};
+
+	// Also add logging to the checkbox change handler
+	const handleCheckboxChange = (checked: boolean) => {
+		console.log('Checkbox changed to:', checked);
+		return checked;
 	};
 
 	return (
@@ -163,8 +177,11 @@ export function AddNoteDialog({
 									<FormControl>
 										<Checkbox
 											checked={field.value}
-											onCheckedChange={field.onChange}
-                                            className="my-auto border-black"
+											onCheckedChange={(checked) => {
+												const newValue = handleCheckboxChange(checked);
+												field.onChange(newValue);
+											}}
+											className="my-auto border-black"
 										/>
 									</FormControl>
 									<div className="space-y-1 leading-none">
