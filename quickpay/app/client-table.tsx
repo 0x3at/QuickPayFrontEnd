@@ -9,11 +9,10 @@ import {
     flexRender,
     getCoreRowModel,
     getFilteredRowModel,
-    getPaginationRowModel,
     getSortedRowModel,
     useReactTable,
 } from "@tanstack/react-table"
-import { ArrowUpDown, ChevronDown, MoreHorizontal } from "lucide-react"
+import { ArrowUpDown, ChevronDown, MoreHorizontal, Search } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -37,10 +36,11 @@ import {
 } from "@/components/ui/table"
 import { EditClientDialog } from "@/components/edit-client-popup"
 import Link from "next/link"
-import { Client, getClientList } from "@/hooks/api-hooks"
+import { useClientsV2 } from "@/hooks/apiv2-hooks"
+import { ClientListItemV2 } from "@/lib/typesV2"
 
 
-export const columns: ColumnDef<Client>[] = [
+export const columns: ColumnDef<ClientListItemV2>[] = [
     {
         id: "select",
         header: ({ table }) => (
@@ -73,7 +73,7 @@ export const columns: ColumnDef<Client>[] = [
                     onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
                 >
                     Client ID
-                    <ArrowUpDown />
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
                     </Button>
                 </div>
             )
@@ -83,11 +83,6 @@ export const columns: ColumnDef<Client>[] = [
                 <Badge variant="default" className="bg-completed text-foreground text-center">{row.getValue("clientID")}</Badge>
             </div>
         ),
-        filterFn: (row, id, filterValue) => {
-            const clientId = row.getValue(id) as number;
-            const searchValue = String(filterValue).toLowerCase();
-            return String(clientId).toLowerCase().includes(searchValue);
-        }
     },
     {
         accessorKey: "companyName",
@@ -99,7 +94,7 @@ export const columns: ColumnDef<Client>[] = [
                         onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
                         >
                     Company Name
-                        <ArrowUpDown />
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
                     </Button>
                 </div>
             )
@@ -109,20 +104,12 @@ export const columns: ColumnDef<Client>[] = [
     {
         accessorKey: "primaryContact",
         header: () => <div className="text-center">Primary Contact</div>,
-        cell: ({ row }) => {
-            const amount = parseFloat(row.getValue("primaryContact"))
-
-            return <div className="text-center font-medium">{row.getValue("primaryContact")}</div>
-        },
+        cell: ({ row }) => <div className="text-center font-medium">{row.getValue("primaryContact")}</div>,
     },
     {
         accessorKey: "email",
         header: () => <div className="text-center">Email</div>,
-        cell: ({ row }) => {
-            const amount = parseFloat(row.getValue("email"))
-
-            return <div className="text-center">{row.getValue("email")}</div>
-        },
+        cell: ({ row }) => <div className="text-center">{row.getValue("email")}</div>,
     },
     {
         accessorKey: "clientStatus",
@@ -134,24 +121,24 @@ export const columns: ColumnDef<Client>[] = [
                         onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
                     >
                         Status
-                        <ArrowUpDown />
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
                     </Button>
                 </div>
             )
         },
         cell: ({ row }) => {
-            const status = row.getValue("clientStatus")
+            const status:string = row.getValue("clientStatus")
 
-            if (status === "Active") {
+            if (status.toLowerCase() === "active") {
                 return (
                     <div className="flex justify-center w-full">
-                        <Badge variant="default" className="bg-success text-accent-foreground">{row.getValue("clientStatus")}</Badge>
+                        <Badge variant="default" className="bg-success text-accent-foreground">Active</Badge>
                     </div>
                 )
             } else {
                 return (
                     <div className="flex justify-center w-full">
-                        <Badge variant="default" className="bg-error text-accent-foreground">{row.getValue("clientStatus")}</Badge>
+                        <Badge variant="default" className="bg-error text-accent-foreground">Inactive</Badge>
                     </div>
                 )
             }
@@ -182,10 +169,9 @@ export const columns: ColumnDef<Client>[] = [
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem>
-                                <Link href={`/client/${client.clientID}`}>View client</Link>
+                                <Link href={`/client/${client.clientID}`}>View Client Details</Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setOpen(true)}>Edit client</DropdownMenuItem>
-                            <DropdownMenuItem>View client details</DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
                     <EditClientDialog open={open} onOpenChange={setOpen} client={client} />
@@ -197,51 +183,86 @@ export const columns: ColumnDef<Client>[] = [
 
 export function ClientTable() {
     const [sorting, setSorting] = React.useState<SortingState>([])
-    const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-        []
-    )
-    const [clientList, setClientList] = React.useState<Client[]>([])
-    React.useEffect(() => {
-        const fetchClientList = async () => {
-            const clientList = await getClientList()
-            setClientList(clientList)
-        }
-        fetchClientList()
-    }, [])
-    const [columnVisibility, setColumnVisibility] =
-        React.useState<VisibilityState>({})
+    const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
+    const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
     const [rowSelection, setRowSelection] = React.useState({})
     
+    // Pagination state
+    const [pagination, setPagination] = React.useState({
+        pageIndex: 0,
+        pageSize: 25,
+    })
+    
+    // Search state - only used for the input field
+    const [searchInput, setSearchInput] = React.useState("")
+    // Actual search term passed to the API after debounce
+    const [searchTerm, setSearchTerm] = React.useState("")
+    
+    // Use the V2 clients hook with pagination and search
+    const { data, isLoading, error, refetch } = useClientsV2({
+        active: true,
+        search: searchTerm,
+        limit: pagination.pageSize,
+        offset: pagination.pageIndex * pagination.pageSize,
+    });
+    
+    // Extract clients and total count from the data
+    const clients = data?.clients || [];
+    const totalCount = data?.metadata?.total || 0;
+    
+    // Calculate page count based on total items
+    const pageCount = Math.ceil(totalCount / pagination.pageSize);
+    
     const table = useReactTable({
-        data: clientList,
+        data: clients,
         columns,
         onSortingChange: setSorting,
         onColumnFiltersChange: setColumnFilters,
         getCoreRowModel: getCoreRowModel(),
-        getPaginationRowModel: getPaginationRowModel(),
+        // Remove client-side filtering as we're using server-side search
         getSortedRowModel: getSortedRowModel(),
-        getFilteredRowModel: getFilteredRowModel(),
         onColumnVisibilityChange: setColumnVisibility,
         onRowSelectionChange: setRowSelection,
+        onPaginationChange: setPagination,
+        manualPagination: true,
+        pageCount,
         state: {
             sorting,
             columnFilters,
             columnVisibility,
             rowSelection,
+            pagination,
         },
-    })
+    });
+
+    // Handle search with debounce
+    React.useEffect(() => {
+        const timeoutId = setTimeout(() => {
+            setSearchTerm(searchInput);
+            // Reset to first page when search changes
+            setPagination(prev => ({ ...prev, pageIndex: 0 }));
+        }, 300);
+        
+        return () => clearTimeout(timeoutId);
+    }, [searchInput]);
+
+    // Function to handle search input changes
+    const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setSearchInput(e.target.value);
+    };
 
     return (
         <div className="w-full">
             <div className="flex items-center py-4">
-                <Input
-                    placeholder="Search by Client ID"
-                    value={(table.getColumn("clientID")?.getFilterValue() as string) ?? ""}
-                    onChange={(event) =>
-                        table.getColumn("clientID")?.setFilterValue(event.target.value)
-                    }
-                    className="max-w-sm"
-                />
+                <div className="relative max-w-md sm:min-w-92">
+                    <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                        placeholder="company name, contact, or email..."
+                        value={searchInput}
+                        onChange={handleSearchChange}
+                        className="pl-8 pr-4 w-full"
+                    />
+                </div>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="outline" className="ml-auto">
@@ -290,31 +311,52 @@ export function ClientTable() {
                         ))}
                     </TableHeader>
                     <TableBody>
-                        {table.getRowModel().rows?.length ? (
-                            table.getRowModel().rows.map((row) => (
-                                <TableRow
-                                    key={row.id}
-                                    data-state={row.getIsSelected() && "selected"}
-                                >
-                                    {row.getVisibleCells().map((cell) => (
-                                        <TableCell key={cell.id}>
-                                            {flexRender(
-                                                cell.column.columnDef.cell,
-                                                cell.getContext()
-                                            )}
-                                        </TableCell>
-                                    ))}
-                                </TableRow>
-                            ))
-                        ) : (
+                        {isLoading ? (
                             <TableRow>
                                 <TableCell
                                     colSpan={columns.length}
                                     className="h-24 text-center"
                                 >
-                                    No results.
+                                    Loading...
                                 </TableCell>
                             </TableRow>
+                        ) : error ? (
+                            <TableRow>
+                                <TableCell
+                                    colSpan={columns.length}
+                                    className="h-24 text-center text-error"
+                                >
+                                    Error loading data
+                                </TableCell>
+                            </TableRow>
+                        ) : clients.length === 0 ? (
+                            <TableRow>
+                                <TableCell
+                                    colSpan={columns.length}
+                                    className="h-24 text-center"
+                                >
+                                    No clients found.
+                                </TableCell>
+                            </TableRow>
+                        ) : (
+                            // Force table re-render with key when data changes
+                            <React.Fragment key={clients.map(c => c.clientID).join(',')}>
+                                {table.getRowModel().rows.map((row) => (
+                                    <TableRow
+                                        key={row.id}
+                                        data-state={row.getIsSelected() && "selected"}
+                                    >
+                                        {row.getVisibleCells().map((cell) => (
+                                            <TableCell key={cell.id}>
+                                                {flexRender(
+                                                    cell.column.columnDef.cell,
+                                                    cell.getContext()
+                                                )}
+                                            </TableCell>
+                                        ))}
+                                    </TableRow>
+                                ))}
+                            </React.Fragment>
                         )}
                     </TableBody>
                 </Table>
@@ -322,14 +364,18 @@ export function ClientTable() {
             <div className="flex items-center justify-end space-x-2 py-4">
                 <div className="flex-1 text-sm text-muted-foreground">
                     {table.getFilteredSelectedRowModel().rows.length} of{" "}
-                    {table.getFilteredRowModel().rows.length} row(s) selected.
+                    {totalCount} client(s) selected.
                 </div>
-                <div className="space-x-2">
+                <div className="flex items-center space-x-2">
+                    <span className="text-sm text-muted-foreground">
+                        Page {table.getState().pagination.pageIndex + 1} of{" "}
+                        {pageCount || 1}
+                    </span>
                     <Button
                         variant="outline"
                         size="sm"
                         onClick={() => table.previousPage()}
-                        disabled={!table.getCanPreviousPage()}
+                        disabled={!table.getCanPreviousPage() || isLoading}
                     >
                         Previous
                     </Button>
@@ -337,7 +383,7 @@ export function ClientTable() {
                         variant="outline"
                         size="sm"
                         onClick={() => table.nextPage()}
-                        disabled={!table.getCanNextPage()}
+                        disabled={!table.getCanNextPage() || isLoading}
                     >
                         Next
                     </Button>

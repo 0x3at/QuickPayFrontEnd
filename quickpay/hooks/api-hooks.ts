@@ -1,12 +1,12 @@
 // hooks/api-hooks.ts
 import { useState, useEffect } from 'react';
 import { apiRequest } from '@/lib/api-client';
-import { errorToast } from '@/lib/utils';
+import { errorToast, successToast } from '@/lib/utils';
 import { useForm, FormState } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { ClientDetails, Invoice } from '@/lib/types';
+import { ClientDetails, Invoice, Note, PaymentMethodPayload, PaymentProfileResponse } from '@/lib/types';
 
 export type Client = {
     clientID: number
@@ -138,7 +138,7 @@ export async function getClientList(): Promise<Client[]> {
 }
 
 // Function for creating a client
-export async function getClient(clientID: number) : Promise<ClientDetails> {
+export async function getClient(clientID: number): Promise<ClientDetails> {
     return apiRequest('/client', {
         method: 'POST',
         body: { clientID: clientID }
@@ -146,14 +146,14 @@ export async function getClient(clientID: number) : Promise<ClientDetails> {
 }
 
 // Function for creating a client
-export async function getEntities() : Promise<{entities: Entity[]}> {
+export async function getEntities(): Promise<{ entities: Entity[] }> {
     return apiRequest('/entities', {
         method: 'POST',
     });
 }
 
 // Function for creating a client
-export async function getClientInvoiceList(clientID: number) : Promise<InvoiceList> {
+export async function getClientInvoiceList(clientID: number): Promise<InvoiceList> {
     return apiRequest('/client/invoices', {
         method: 'POST',
         body: { clientID: clientID }
@@ -164,7 +164,7 @@ export type InvoiceList = {
     invoices: Invoice[]
 }
 
-export async function getInvoiceList() : Promise<InvoiceList> {
+export async function getInvoiceList(): Promise<InvoiceList> {
     return apiRequest('/invoices', {
         method: 'GET',
     });
@@ -186,7 +186,7 @@ export async function createClient(clientData: any) {
     });
 }
 
-export async function editClient(clientData: any): Promise< ClientDetails > {
+export async function editClient(clientData: any): Promise<ClientDetails> {
     return apiRequest('/client/edit', {
         method: 'POST',
         body: {
@@ -200,9 +200,42 @@ export async function editClient(clientData: any): Promise< ClientDetails > {
     });
 }
 
+export async function addClientNote(clientID: number, note: string, important: boolean, createdBy: string): Promise<{ note: Note }> {
+    return apiRequest('/client/note/add', {
+        method: 'POST',
+        body: { clientID: clientID, note: note, important: important, createdBy: createdBy }
+    });
+}
+
+
+
 export async function setDefaultPaymentMethod(clientID: number, paymentProfileID: string) {
     return apiRequest('/client/paymentmethod/setdefault', {
         method: 'POST',
         body: { clientID: clientID, paymentProfileID: paymentProfileID }
+    });
+}
+
+
+// New implementation of addPaymentMethod that accepts the complete payload
+export async function addPaymentMethod(payload: PaymentMethodPayload): Promise<PaymentProfileResponse> {
+    return apiRequest<PaymentProfileResponse>('/client/paymentmethod/create', {
+        method: 'POST',
+        body: payload
+    });
+}
+
+export async function deletePaymentMethod(payload: any) {
+    return apiRequest('/client/paymentmethod/delete', {
+        method: 'POST',
+        body:
+            payload.entityCode ? {
+                clientID: payload.clientID,
+                paymentProfileID: payload.paymentProfileID,
+                entityCode: payload.entityCode
+            } : {
+                clientID: payload.clientID,
+                paymentProfileID: payload.paymentProfileID
+            }
     });
 }

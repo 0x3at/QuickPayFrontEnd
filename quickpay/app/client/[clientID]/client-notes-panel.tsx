@@ -1,6 +1,7 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
 	Card,
@@ -10,93 +11,44 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { ClientDetailResponseV2, NoteV2 } from '@/lib/typesV2';
 import {
-	Star,
-	MailIcon,
-	UserIcon,
-	CircleUserRoundIcon,
-	Building,
-	StickyNote,
+	StickyNote, Bug, X
 } from 'lucide-react';
-import { getClient } from '@/hooks/api-hooks';
-import { ClientDetails } from '@/lib/types';
+import { AddNoteDialog } from '@/components/add-note-dialog';
 
-export function ClientNotesPanel({ clientID }: { clientID: number }) {
-	const [clientDetails, setClientDetails] = useState<ClientDetails | null>(
-		null
-	);
-	const [isLoading, setIsLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
+interface ClientNotesPanelProps {
+	clientID: number;
+	clientDetails: ClientDetailResponseV2;
+	onRefresh: () => void;
+}
 
-	useEffect(() => {
-		async function fetchClientData() {
-			try {
-				setIsLoading(true);
-				setError(null);
-				const data: ClientDetails = await getClient(clientID);
-				setClientDetails(data);
-			} catch (err) {
-				console.error('Failed to fetch client:', err);
-				setError('Could not load client details');
-			} finally {
-				setIsLoading(false);
-			}
-		}
+// Helper function to handle boolean values that might be strings
+const isTrueValue = (value: any): boolean => {
+	return value === true || value === "True" || value === "true";
+};
 
-		fetchClientData();
-	}, [clientID]);
+const isFalseValue = (value: any): boolean => {
+	return value === false || value === "False" || value === "false";
+};
 
-	// Loading state
-	if (isLoading) {
-		return (
-			<div className='flex flex-row gap-4'>
-				<Card className='w-1/2 my-6 mx-auto'>
-					<CardHeader>
-						<CardTitle>Loading client information...</CardTitle>
-					</CardHeader>
-				</Card>
-			</div>
-		);
-	}
+export function ClientNotesPanel({ clientID, clientDetails, onRefresh }: ClientNotesPanelProps) {
+	const [open, setOpen] = useState(false);
+	
+	// Helper function for handling add note success
+	const handleAddNoteSuccess = () => {
+		// Call the parent refresh function to get updated client data
+		onRefresh();
+	};
 
-	// Error state
-	if (error) {
-		return (
-			<div className='flex flex-row gap-4'>
-				<Card className='w-1/2 my-6 mx-auto'>
-					<CardHeader>
-						<CardTitle>Error</CardTitle>
-						<CardDescription>
-							{error || 'Failed to load client data'}
-						</CardDescription>
-					</CardHeader>
-				</Card>
-			</div>
-		);
-	}
-
-	console.log(clientDetails);
-	// Data loaded successfully
 	return (
-		<div className='flex flex-row gap-4'>
+		<div className='flex flex-col gap-4'>
 			<Card className='w-full'>
 				<CardHeader>
 					<div className='flex flex-row justify-between items-center'>
 						<CardTitle className='text-2xl font-bold'>Notes</CardTitle>
-						<Button variant='default' size='sm'>
-							Add Note
-						</Button>
+						<Button variant='action' size='sm' className='text-secondary' onClick={() => setOpen(true)}>Add Note</Button>
 					</div>
 					<CardDescription>
 						Client notes and important information
@@ -104,16 +56,16 @@ export function ClientNotesPanel({ clientID }: { clientID: number }) {
 					<Separator className='my-4' />
 				</CardHeader>
 				<CardContent>
-					{clientDetails?.notes && clientDetails.notes.length > 0 ? (
+					{Array.isArray(clientDetails.notes) && clientDetails.notes.length > 0 ? (
 						<div className='space-y-4'>
 							{clientDetails.notes
 								.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-								.filter((note) => note.archived !== '1')
+								.filter((note) => !isTrueValue(note.archived))
 								.map((note, index) => (
 									<Card
 										key={note.noteID || index}
 										className={`border ${
-											note.important.toLowerCase() === 'true'
+											isTrueValue(note.important)
 												? 'border-amber-400'
 												: ''
 										}`}
@@ -126,8 +78,7 @@ export function ClientNotesPanel({ clientID }: { clientID: number }) {
 														Note by {note.author}
 													</CardTitle>
 												</div>
-												{note.important.toLowerCase() ===
-													'true' && (
+												{isTrueValue(note.important) && (
 													<Badge className='bg-amber-400 text-white'>
 														Important
 													</Badge>
@@ -138,7 +89,7 @@ export function ClientNotesPanel({ clientID }: { clientID: number }) {
 											</CardDescription>
 										</CardHeader>
 										<Separator className='w-2/3' />
-										<CardContent className='a'>
+										<CardContent className='pt-4'>
 											<p className='whitespace-pre-wrap'>
 												{note.note}
 											</p>
@@ -155,6 +106,13 @@ export function ClientNotesPanel({ clientID }: { clientID: number }) {
 				<CardFooter className='flex justify-between'>
 				</CardFooter>
 			</Card>
+			<AddNoteDialog
+				open={open}
+				onOpenChange={setOpen}
+				clientID={clientID}
+				onSuccess={handleAddNoteSuccess}
+				defaultAuthor="User"
+			/>
 		</div>
 	);
 }

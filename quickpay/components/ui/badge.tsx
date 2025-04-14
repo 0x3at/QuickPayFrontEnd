@@ -22,9 +22,9 @@ const badgeVariants = cva(
         warning:
           "border-warning bg-warning text-white [a&]:hover:bg-warning/90",
         error:
-          "border-error bg-error text-white [a&]:hover:bg-error/90",
+          "border-white bg-error text-white [a&]:hover:bg-error/90",
         completed:
-          "border-completed bg-completed text-white [a&]:hover:bg-completed/90",
+          "border-white bg-completed text-white [a&]:hover:bg-completed/90",
         action:
           "border-action-border bg-action text-action-foreground shadow-action [a&]:hover:bg-action/90",
       },

@@ -9,11 +9,10 @@ import {
     flexRender,
     getCoreRowModel,
     getFilteredRowModel,
-    getPaginationRowModel,
     getSortedRowModel,
     useReactTable,
 } from "@tanstack/react-table"
-import { ArrowUpDown, ChevronDown, MoreHorizontal } from "lucide-react"
+import { ArrowUpDown, ChevronDown, MoreHorizontal, Search } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -35,12 +34,18 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
-import { EditClientDialog } from "@/components/edit-client-popup"
 import Link from "next/link"
-import { getInvoiceList, InvoiceList } from "@/hooks/api-hooks"
-import { Invoice } from "./client/[clientID]/client-info-card"
+import { useInvoicesV2 } from "@/hooks/apiv2-hooks"
+import { InvoiceV2 } from "@/lib/typesV2"
+import { 
+    Select,
+    SelectContent, 
+    SelectItem, 
+    SelectTrigger, 
+    SelectValue 
+} from "@/components/ui/select"
 
-export const columns: ColumnDef<Invoice>[] = [
+export const columns: ColumnDef<InvoiceV2>[] = [
     {
         id: "select",
         header: ({ table }) => (
@@ -73,7 +78,7 @@ export const columns: ColumnDef<Invoice>[] = [
                         onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
                     >
                         Invoice ID
-                        <ArrowUpDown />
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
                     </Button>
                 </div>
             )
@@ -82,12 +87,7 @@ export const columns: ColumnDef<Invoice>[] = [
             <div className="flex justify-center">
                 <Badge variant="default" className="bg-success text-accent-foreground text-center">{row.getValue("invoiceID")}</Badge>
             </div>
-        ),
-        filterFn: (row, id, filterValue) => {
-            const invoiceId = row.getValue(id) as number;
-            const searchValue = String(filterValue).toLowerCase();
-            return String(invoiceId).toLowerCase().includes(searchValue);
-        }
+        )
     },
     {
         accessorKey: "clientID",
@@ -99,7 +99,7 @@ export const columns: ColumnDef<Invoice>[] = [
                         onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
                     >
                         Client ID
-                        <ArrowUpDown />
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
                     </Button>
                 </div>
             )
@@ -108,12 +108,7 @@ export const columns: ColumnDef<Invoice>[] = [
             <div className="flex justify-center">
                 <Badge variant="default" className="bg-completed text-accent-foreground text-center">{row.getValue("clientID")}</Badge>
             </div>
-        ),
-        filterFn: (row, id, filterValue) => {
-            const clientId = row.getValue(id) as number;
-            const searchValue = String(filterValue).toLowerCase();
-            return String(clientId).toLowerCase().includes(searchValue);
-        }
+        )
     },
     {
         accessorKey: "entityCode",
@@ -125,17 +120,17 @@ export const columns: ColumnDef<Invoice>[] = [
                         onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
                     >
                         Entity
-                        <ArrowUpDown />
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
                     </Button>
                 </div>
             )
         },
-      cell: ({ row }) => <div className="text-center">
-        {row.getValue("entityCode") === "wc" ? "WholeSale Communications" : 
-         row.getValue("entityCode") === "vbc" ? "Voice Broadcasting" : 
-         row.getValue("entityCode") === "cg" ? "Contract Genie" : 
-         row.getValue("entityCode")}
-      </div>,
+        cell: ({ row }) => <div className="text-center">
+            {row.getValue("entityCode") === "wc" ? "WholeSale Communications" : 
+            row.getValue("entityCode") === "vbc" ? "Voice Broadcasting" : 
+            row.getValue("entityCode") === "cg" ? "Contract Genie" : 
+            row.getValue("entityCode")}
+        </div>,
     },
     {
         accessorKey: "invoiceStatus",
@@ -146,25 +141,31 @@ export const columns: ColumnDef<Invoice>[] = [
             if (status === "Pending") {
                 return (
                     <div className="flex justify-center w-full">
-                        <Badge variant="default" className="bg-warning text-accent-foreground">{row.getValue("invoiceStatus")}</Badge>
+                        <Badge variant="default" className="bg-warning text-accent-foreground">Pending</Badge>
                     </div>
                 )
             } else if (status === "Approved") {
                 return (
                     <div className="flex justify-center w-full">
-                        <Badge variant="default" className="bg-success text-accent-foreground">{row.getValue("invoiceStatus")}</Badge>
+                        <Badge variant="default" className="bg-success text-accent-foreground">Approved</Badge>
                     </div>
                 )
             } else if (status === "Rejected") {
                 return (
                     <div className="flex justify-center w-full">
-                        <Badge variant="default" className="bg-error text-accent-foreground">{row.getValue("invoiceStatus")}</Badge>
+                        <Badge variant="default" className="bg-error text-accent-foreground">Rejected</Badge>
                     </div>
                 )
             } else if (status === "Collected") {
                 return (
                     <div className="flex justify-center w-full">
-                        <Badge variant="default" className="bg-completed text-accent-foreground">{row.getValue("invoiceStatus")}</Badge>
+                        <Badge variant="default" className="bg-completed text-accent-foreground">Collected</Badge>
+                    </div>
+                )
+            } else {
+                return (
+                    <div className="flex justify-center w-full">
+                        <Badge variant="default">{String(status)}</Badge>
                     </div>
                 )
             }
@@ -174,9 +175,27 @@ export const columns: ColumnDef<Invoice>[] = [
         accessorKey: "invoiceTotal",
         header: () => <div className="text-center">Total</div>,
         cell: ({ row }) => {
-            const amount = parseFloat(row.getValue("invoiceTotal"))
-
-            return <div className="text-center">{row.getValue("invoiceTotal")}</div>
+            return <div className="text-center">${row.getValue("invoiceTotal")}</div>
+        },
+    },
+    {
+        accessorKey: "createdAt",
+        header: ({ column }) => {
+            return (
+                <div className="flex justify-center">
+                    <Button
+                        variant="ghost"
+                        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    >
+                        Created
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                </div>
+            )
+        },
+        cell: ({ row }) => {
+            const date = new Date(row.getValue("createdAt"));
+            return <div className="text-center">{date.toLocaleDateString()}</div>
         },
     },
     {
@@ -202,8 +221,12 @@ export const columns: ColumnDef<Invoice>[] = [
                                 Copy Invoice ID
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem>Edit Invoice</DropdownMenuItem>
-                            <DropdownMenuItem>View Invoice Details</DropdownMenuItem>
+                            <DropdownMenuItem>
+                                <Link href={`/invoice/${invoice.invoiceID}`}>View Invoice Details</Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                                <Link href={`/client/${invoice.clientID}`}>View Client Details</Link>
+                            </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </>
@@ -217,167 +240,228 @@ export function InvoiceTable() {
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
     const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
     const [rowSelection, setRowSelection] = React.useState({})
-    const [data, setData] = React.useState<InvoiceList>()
-    const [isLoading, setIsLoading] = React.useState(true)
-
-    React.useEffect(() => {
-        async function fetchInvoices() {
-            try {
-                setIsLoading(true)
-                const invoiceData = await getInvoiceList()
-                setData(invoiceData)
-            } catch (err) {
-                console.error("Failed to fetch invoices:", err)
-            } finally {
-                setIsLoading(false)
-            }
-        }
-
-        fetchInvoices()
-    }, [])
     
-    // Always call useReactTable, even if data isn't loaded yet
+    // Pagination state
+    const [pagination, setPagination] = React.useState({
+        pageIndex: 0,
+        pageSize: 25,
+    })
+    
+    // Filter states
+    const [entityCode, setEntityCode] = React.useState<string | undefined>(undefined)
+    const [statusFilter, setStatusFilter] = React.useState<string | undefined>(undefined)
+    
+    // Use the V2 invoices hook with pagination and filters
+    const { data, isLoading, error, refetch } = useInvoicesV2({
+        entityCode,
+        status: statusFilter,
+        limit: pagination.pageSize,
+        offset: pagination.pageIndex * pagination.pageSize,
+    });
+    
+    // Extract invoices and total count from the data
+    const invoices = data?.invoices || [];
+    const totalCount = data?.metadata?.total || 0;
+    
+    // Calculate page count based on total items
+    const pageCount = Math.ceil(totalCount / pagination.pageSize);
+    
     const table = useReactTable({
-        data: data?.invoices || [],  // Provide empty array as fallback
+        data: invoices,
         columns,
         onSortingChange: setSorting,
         onColumnFiltersChange: setColumnFilters,
         getCoreRowModel: getCoreRowModel(),
-        getPaginationRowModel: getPaginationRowModel(),
         getSortedRowModel: getSortedRowModel(),
-        getFilteredRowModel: getFilteredRowModel(),
         onColumnVisibilityChange: setColumnVisibility,
         onRowSelectionChange: setRowSelection,
+        onPaginationChange: setPagination,
+        manualPagination: true,
+        pageCount,
         state: {
             sorting,
             columnFilters,
             columnVisibility,
             rowSelection,
+            pagination,
         },
-    })
+    });
 
-    // Handle loading/empty states in the return statement AFTER all hooks are called
+    // Handle entity filter change
+    const handleEntityChange = (value: string) => {
+        setEntityCode(value === "all" ? undefined : value);
+        setPagination(prev => ({ ...prev, pageIndex: 0 }));
+    };
+
+    // Handle status filter change
+    const handleStatusChange = (value: string) => {
+        setStatusFilter(value === "all" ? undefined : value);
+        setPagination(prev => ({ ...prev, pageIndex: 0 }));
+    };
+
     return (
         <div className="w-full">
-            {isLoading ? (
-                <div className="w-full p-4 text-center">Loading invoice data...</div>
-            ) : !data?.invoices || data.invoices.length === 0 ? (
-                <div className="w-full p-4 text-center">No invoice data available</div>
-            ) : (
-                /* Rest of your component with table UI */
-                <>
-                    <div className="flex items-center py-4">
-                        <Input
-                            placeholder="Search by Invoice ID"
-                            value={(table.getColumn("invoiceID")?.getFilterValue() as string) ?? ""}
-                            onChange={(event) =>
-                                table.getColumn("invoiceID")?.setFilterValue(event.target.value)
-                            }
-                            className="max-w-sm"
-                        />
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" className="ml-auto">
-                                    Columns <ChevronDown />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                {table
-                                    .getAllColumns()
-                                    .filter((column) => column.getCanHide())
-                                    .map((column) => {
-                                        return (
-                                            <DropdownMenuCheckboxItem
-                                                key={column.id}
-                                                className="capitalize"
-                                                checked={column.getIsVisible()}
-                                                onCheckedChange={(value: any) =>
-                                                    column.toggleVisibility(!!value)
-                                                }
-                                            >
-                                                {column.id}
-                                            </DropdownMenuCheckboxItem>
-                                        )
-                                    })}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-                    <div className="rounded-md border">
-                        <Table>
-                            <TableHeader>
-                                {table.getHeaderGroups().map((headerGroup) => (
-                                    <TableRow key={headerGroup.id}>
-                                        {headerGroup.headers.map((header) => {
-                                            return (
-                                                <TableHead key={header.id}>
-                                                    {header.isPlaceholder
-                                                        ? null
-                                                        : flexRender(
-                                                            header.column.columnDef.header,
-                                                            header.getContext()
-                                                        )}
-                                                </TableHead>
-                                            )
-                                        })}
+            <div className="flex flex-wrap items-center gap-12 py-4">
+                {/* Entity Filter */}
+
+                {/* Status Filter */}
+                <div className="w-[200px]">
+                    <Select onValueChange={handleStatusChange} defaultValue="all">
+                        <SelectTrigger>
+                            <SelectValue placeholder="Filter by Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Statuses</SelectItem>
+                            <SelectItem value="Pending">Pending</SelectItem>
+                            <SelectItem value="Approved">Approved</SelectItem>
+                            <SelectItem value="Rejected">Rejected</SelectItem>
+                            <SelectItem value="Collected">Collected</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div className="w-[200px]">
+                    <Select onValueChange={handleEntityChange} defaultValue="all">
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select Entity" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Entities</SelectItem>
+                            <SelectItem value="wc">Wholesale Communications</SelectItem>
+                            <SelectItem value="cg">Contract Genie</SelectItem>
+                            <SelectItem value="vbc">Voice Broadcasting</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div className="ml-auto">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline">
+                                Columns <ChevronDown />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            {table
+                                .getAllColumns()
+                                .filter((column) => column.getCanHide())
+                                .map((column) => {
+                                    return (
+                                        <DropdownMenuCheckboxItem
+                                            key={column.id}
+                                            className="capitalize"
+                                            checked={column.getIsVisible()}
+                                            onCheckedChange={(value: any) =>
+                                                column.toggleVisibility(!!value)
+                                            }
+                                        >
+                                            {column.id}
+                                        </DropdownMenuCheckboxItem>
+                                    )
+                                })}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+            </div>
+            <div className="rounded-md border">
+                <Table>
+                    <TableHeader>
+                        {table.getHeaderGroups().map((headerGroup) => (
+                            <TableRow key={headerGroup.id}>
+                                {headerGroup.headers.map((header) => {
+                                    return (
+                                        <TableHead key={header.id}>
+                                            {header.isPlaceholder
+                                                ? null
+                                                : flexRender(
+                                                    header.column.columnDef.header,
+                                                    header.getContext()
+                                                )}
+                                        </TableHead>
+                                    )
+                                })}
+                            </TableRow>
+                        ))}
+                    </TableHeader>
+                    <TableBody>
+                        {isLoading ? (
+                            <TableRow>
+                                <TableCell
+                                    colSpan={columns.length}
+                                    className="h-24 text-center"
+                                >
+                                    Loading...
+                                </TableCell>
+                            </TableRow>
+                        ) : error ? (
+                            <TableRow>
+                                <TableCell
+                                    colSpan={columns.length}
+                                    className="h-24 text-center text-error"
+                                >
+                                    Error loading data
+                                </TableCell>
+                            </TableRow>
+                        ) : invoices.length === 0 ? (
+                            <TableRow>
+                                <TableCell
+                                    colSpan={columns.length}
+                                    className="h-24 text-center"
+                                >
+                                    No invoices found.
+                                </TableCell>
+                            </TableRow>
+                        ) : (
+                            // Force table re-render with key when data changes
+                            <React.Fragment key={invoices.map(i => i.invoiceID).join(',')}>
+                                {table.getRowModel().rows.map((row) => (
+                                    <TableRow
+                                        key={row.id}
+                                        data-state={row.getIsSelected() && "selected"}
+                                    >
+                                        {row.getVisibleCells().map((cell) => (
+                                            <TableCell key={cell.id} className="text-center">
+                                                {flexRender(
+                                                    cell.column.columnDef.cell,
+                                                    cell.getContext()
+                                                )}
+                                            </TableCell>
+                                        ))}
                                     </TableRow>
                                 ))}
-                            </TableHeader>
-                            <TableBody>
-                                {table.getRowModel().rows?.length ? (
-                                    table.getRowModel().rows.map((row) => (
-                                        <TableRow
-                                            key={row.id}
-                                            data-state={row.getIsSelected() && "selected"}
-                                        >
-                                            {row.getVisibleCells().map((cell) => (
-                                                <TableCell key={cell.id} className="text-center">
-                                                    {flexRender(
-                                                        cell.column.columnDef.cell,
-                                                        cell.getContext()
-                                                    )}
-                                                </TableCell>
-                                            ))}
-                                        </TableRow>
-                                    ))
-                                ) : (
-                                    <TableRow>
-                                        <TableCell
-                                            colSpan={columns.length}
-                                            className="h-24 text-center"
-                                        >
-                                            No results.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
-                    <div className="flex items-center justify-end space-x-2 py-4">
-                        <div className="flex-1 text-sm text-muted-foreground">
-                            {table.getFilteredSelectedRowModel().rows.length} of{" "}
-                            {table.getFilteredRowModel().rows.length} row(s) selected.
-                        </div>
-                        <div className="space-x-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => table.previousPage()}
-                                disabled={!table.getCanPreviousPage()}
-                            >
-                                Previous
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => table.nextPage()}
-                                disabled={!table.getCanNextPage()}
-                            >
-                                Next
-                            </Button>
-                        </div>
-                    </div>
-                </>
-            )}
+                            </React.Fragment>
+                        )}
+                    </TableBody>
+                </Table>
+            </div>
+            <div className="flex items-center justify-end space-x-2 py-4">
+                <div className="flex-1 text-sm text-muted-foreground">
+                    {table.getFilteredSelectedRowModel().rows.length} of{" "}
+                    {totalCount} invoice(s) selected.
+                </div>
+                <div className="flex items-center space-x-2">
+                    <span className="text-sm text-muted-foreground">
+                        Page {table.getState().pagination.pageIndex + 1} of{" "}
+                        {pageCount || 1}
+                    </span>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => table.previousPage()}
+                        disabled={!table.getCanPreviousPage() || isLoading}
+                    >
+                        Previous
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => table.nextPage()}
+                        disabled={!table.getCanNextPage() || isLoading}
+                    >
+                        Next
+                    </Button>
+                </div>
+            </div>
         </div>
     )
 }

@@ -44,88 +44,134 @@
 }
 
 :root {
+  /* Base radius */
   --radius: 0.5rem;
-  --background: oklch(0.98 0.01 240.0);
-  --foreground: oklch(0.141 0.005 285.823);
-  --card: oklch(0.995 0.02 245.0);
-  --card-foreground: oklch(0.141 0.005 285.823);
-  --popover: oklch(0.995 0.02 245.0);
-  --popover-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(0.45 0.27 250.0);
-  --primary-foreground: oklch(0.99 0.01 254.604);
-  --secondary: oklch(0.92 0.03 245.0);
-  --secondary-foreground: oklch(0.18 0.02 245.0);
-  --muted: oklch(0.94 0.02 240.0);
-  --muted-foreground: oklch(0.5 0.05 245.0);
-  --accent: oklch(0.9 0.04 240.0);
-  --accent-foreground: oklch(0.2 0.025 245.0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.85 0.03 240.0);
-  --input: oklch(0.9 0.04 245.0);
-  --ring: oklch(0.5 0.25 250.0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.98 0.02 245.0);
-  --sidebar-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-primary: oklch(0.45 0.27 250.0);
-  --sidebar-primary-foreground: oklch(0.97 0.014 254.604);
-  --sidebar-accent: oklch(0.9 0.04 240.0);
-  --sidebar-accent-foreground: oklch(0.2 0.025 245.0);
-  --sidebar-border: oklch(0.85 0.03 240.0);
-  --sidebar-ring: oklch(0.5 0.25 250.0);
-  --completed: oklch(0.65 0.15 250.0);
-  --success: oklch(0.68 0.16 145.0);
-  --warning: oklch(0.75 0.17 90.0);
-  --error: oklch(0.65 0.18 25.0);
-  --action: oklch(0.5 0.25 230.0);
-  --action-foreground: oklch(1 0 0);
-  --action-border: oklch(0.4 0.3 230.0);
-  --action-glow: oklch(0.5 0.25 230.0 / 40%);
+
+  /* Core colors - clean white base */
+  --background: oklch(1 0 0); /* Main background - use bg-background */
+  --foreground: oklch(0.141 0.005 285.823); /* Main text - use text-foreground */
+  --card: oklch(1 0 0); /* Card background - use bg-card */
+  --card-foreground: oklch(0.141 0.005 285.823); /* Card text - use text-card-foreground */
+  --popover: oklch(1 0 0); /* Popover background - use bg-popover */
+  --popover-foreground: oklch(0.141 0.005 285.823); /* Popover text - use text-popover-foreground */
+
+  /* Primary - purple/blue - use for main actions and focus */
+  --primary: oklch(0.623 0.214 259.815); /* Primary buttons/links - use bg-primary, text-primary */
+  --primary-foreground: oklch(0.97 0.014 254.604); /* Text on primary - use text-primary-foreground */
+
+  /* Secondary - subtle gray with slight purple tint - use for secondary actions */
+  --secondary: oklch(0.967 0.001 286.375); /* Secondary buttons - use bg-secondary */
+  --secondary-foreground: oklch(0.21 0.006 285.885); /* Text on secondary - use text-secondary-foreground */
+
+  /* Muted - subtle backgrounds for less emphasis */
+  --muted: oklch(0.967 0.001 286.375); /* Subtle backgrounds - use bg-muted */
+  --muted-foreground: oklch(0.552 0.016 285.938); /* Subtle text - use text-muted-foreground for labels, hints */
+
+  /* Accent - subtle highlight - use for hover states */
+  --accent: oklch(0.967 0.001 286.375); /* Accent backgrounds - use bg-accent */
+  --accent-foreground: oklch(0.21 0.006 285.885); /* Text on accent - use text-accent-foreground */
+
+  /* Destructive - red - use for errors, deletions */
+  --destructive: oklch(0.577 0.245 27.325); /* Error states - use bg-destructive, text-destructive */
+  --destructive-foreground: oklch(1 0 0); /* Text on destructive - use text-destructive-foreground */
+
+  /* Borders and inputs */
+  --border: oklch(0.92 0.004 286.32); /* Borders - use border-border */
+  --input: oklch(0.92 0.004 286.32); /* Input borders - use border-input */
+  --ring: oklch(0.623 0.214 259.815); /* Focus rings - use ring-ring */
+
+  /* Data visualization colors - optimized for charts and graphs */
+  --chart-1: oklch(0.623 0.214 259.815); /* Primary purple - use for main data series */
+  --chart-2: oklch(0.6 0.18 190.0); /* Teal - use for secondary data */
+  --chart-3: oklch(0.7 0.16 130.0); /* Green - use for positive trends */
+  --chart-4: oklch(0.75 0.18 80.0); /* Orange - use for warnings/alerts */
+  --chart-5: oklch(0.65 0.2 25.0); /* Red - use for negative trends */
+
+  /* Sidebar - slightly off-white for subtle separation */
+  --sidebar: oklch(0.985 0 0); /* Sidebar background - use bg-sidebar */
+  --sidebar-foreground: oklch(0.141 0.005 285.823); /* Sidebar text - use text-sidebar-foreground */
+  --sidebar-primary: oklch(0.623 0.214 259.815); /* Sidebar primary elements - use text-sidebar-primary */
+  --sidebar-primary-foreground: oklch(0.97 0.014 254.604); /* Text on sidebar primary - use text-sidebar-primary-foreground */
+  --sidebar-accent: oklch(0.967 0.001 286.375); /* Sidebar accent - use bg-sidebar-accent */
+  --sidebar-accent-foreground: oklch(0.21 0.006 285.885); /* Text on sidebar accent - use text-sidebar-accent-foreground */
+  --sidebar-border: oklch(0.92 0.004 286.32); /* Sidebar borders - use border-sidebar-border */
+  --sidebar-ring: oklch(0.623 0.214 259.815); /* Sidebar focus rings - use ring-sidebar-ring */
+
+  /* Status colors - semantic indicators */
+  --completed: oklch(0.623 0.214 259.815); /* Completed tasks - use text-completed, bg-completed */
+  --success: oklch(0.7 0.16 130.0); /* Success states - use text-success, bg-success */
+  --warning: oklch(0.75 0.18 80.0); /* Warning states - use text-warning, bg-warning */
+  --error: oklch(0.65 0.2 25.0); /* Error states - use text-error, bg-error */
+
+  /* Action colors - for interactive elements */
+  --action: oklch(0.623 0.214 259.815); /* Action buttons - use text-action, bg-action */
+  --action-foreground: oklch(1 0 0); /* Text on action - use text-action-foreground */
+  --action-border: oklch(0.55 0.23 259.815); /* Action borders - use border-action */
+  --action-glow: oklch(0.623 0.214 259.815 / 30%); /* Action glow effects - use shadow-action */
 }
 
 .dark {
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
-  --card: oklch(0.208 0.042 265.755);
-  --card-foreground: oklch(0.984 0.003 247.858);
-  --popover: oklch(0.208 0.042 265.755);
-  --popover-foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.929 0.013 255.508);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.208 0.042 265.755);
-  --sidebar-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.279 0.041 260.031);
-  --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.551 0.027 264.364);
-  --completed: oklch(0.75 0.12 250.0);
-  --success: oklch(0.78 0.12 145.0);
-  --warning: oklch(0.85 0.15 90.0);
-  --error: oklch(0.75 0.15 25.0);
-  --action: oklch(0.6 0.22 230.0);
-  --action-foreground: oklch(1 0 0);
-  --action-border: oklch(0.5 0.27 230.0);
-  --action-glow: oklch(0.6 0.22 230.0 / 35%);
+  /* Core colors - dark mode */
+  --background: oklch(0.141 0.005 285.823); /* Main background - use bg-background */
+  --foreground: oklch(0.985 0 0); /* Main text - use text-foreground */
+  --card: oklch(0.21 0.006 285.885); /* Card background - use bg-card */
+  --card-foreground: oklch(0.985 0 0); /* Card text - use text-card-foreground */
+  --popover: oklch(0.21 0.006 285.885); /* Popover background - use bg-popover */
+  --popover-foreground: oklch(0.985 0 0); /* Popover text - use text-popover-foreground */
+
+  /* Primary - brighter in dark mode for better visibility */
+  --primary: oklch(0.546 0.245 262.881); /* Primary buttons/links - use bg-primary, text-primary */
+  --primary-foreground: oklch(0.985 0 0); /* Text on primary - use text-primary-foreground */
+
+  /* Secondary - darker gray with slight purple tint */
+  --secondary: oklch(0.274 0.006 286.033); /* Secondary buttons - use bg-secondary */
+  --secondary-foreground: oklch(0.985 0 0); /* Text on secondary - use text-secondary-foreground */
+
+  /* Muted - subtle backgrounds for less emphasis */
+  --muted: oklch(0.274 0.006 286.033); /* Subtle backgrounds - use bg-muted */
+  --muted-foreground: oklch(0.705 0.015 286.067); /* Subtle text - use text-muted-foreground */
+
+  /* Accent - subtle highlight */
+  --accent: oklch(0.274 0.006 286.033); /* Accent backgrounds - use bg-accent */
+  --accent-foreground: oklch(0.985 0 0); /* Text on accent - use text-accent-foreground */
+
+  /* Destructive - brighter red in dark mode */
+  --destructive: oklch(0.704 0.191 22.216); /* Error states - use bg-destructive, text-destructive */
+  --destructive-foreground: oklch(0.985 0 0); /* Text on destructive - use text-destructive-foreground */
+
+  /* Borders and inputs - subtle in dark mode */
+  --border: oklch(1 0 0 / 10%); /* Borders - use border-border */
+  --input: oklch(1 0 0 / 15%); /* Input borders - use border-input */
+  --ring: oklch(0.488 0.243 264.376); /* Focus rings - use ring-ring */
+
+  /* Data visualization colors - optimized for dark mode visibility */
+  --chart-1: oklch(0.488 0.243 264.376); /* Primary purple - use for main data series */
+  --chart-2: oklch(0.696 0.17 162.48); /* Teal - use for secondary data */
+  --chart-3: oklch(0.769 0.188 70.08); /* Green - use for positive trends */
+  --chart-4: oklch(0.627 0.265 303.9); /* Pink - use for tertiary data */
+  --chart-5: oklch(0.645 0.246 16.439); /* Red - use for negative trends */
+
+  /* Sidebar - slightly darker than main background */
+  --sidebar: oklch(0.21 0.006 285.885); /* Sidebar background - use bg-sidebar */
+  --sidebar-foreground: oklch(0.985 0 0); /* Sidebar text - use text-sidebar-foreground */
+  --sidebar-primary: oklch(0.546 0.245 262.881); /* Sidebar primary elements - use text-sidebar-primary */
+  --sidebar-primary-foreground: oklch(0.985 0 0); /* Text on sidebar primary - use text-sidebar-primary-foreground */
+  --sidebar-accent: oklch(0.274 0.006 286.033); /* Sidebar accent - use bg-sidebar-accent */
+  --sidebar-accent-foreground: oklch(0.985 0 0); /* Text on sidebar accent - use text-sidebar-accent-foreground */
+  --sidebar-border: oklch(1 0 0 / 10%); /* Sidebar borders - use border-sidebar-border */
+  --sidebar-ring: oklch(0.488 0.243 264.376); /* Sidebar focus rings - use ring-sidebar-ring */
+
+  /* Status colors - semantic indicators for dark mode */
+  --completed: oklch(0.488 0.243 264.376); /* Completed tasks - use text-completed, bg-completed */
+  --success: oklch(0.769 0.188 70.08); /* Success states - use text-success, bg-success */
+  --warning: oklch(0.75 0.2 80.0); /* Warning states - use text-warning, bg-warning */
+  --error: oklch(0.645 0.246 16.439); /* Error states - use text-error, bg-error */
+
+  /* Action colors - for interactive elements */
+  --action: oklch(0.546 0.245 262.881); /* Action buttons - use text-action, bg-action */
+  --action-foreground: oklch(0.985 0 0); /* Text on action - use text-action-foreground */
+  --action-border: oklch(0.488 0.243 264.376); /* Action borders - use border-action */
+  --action-glow: oklch(0.546 0.245 262.881 / 25%); /* Action glow effects - use shadow-action */
 }
 
 @layer base {
@@ -139,73 +185,84 @@
 }
 
 @layer utilities {
+  /* Status utility classes */
+
+  /* Text colors - use for text elements */
   .text-completed {
-    color: var(--completed);
+    color: var(--completed); /* Use for completed task text */
   }
 
   .text-success {
-    color: var(--success);
+    color: var(--success); /* Use for success messages */
   }
 
   .text-warning {
-    color: var(--warning);
+    color: var(--warning); /* Use for warning messages */
   }
 
   .text-error {
-    color: var(--error);
+    color: var(--error); /* Use for error messages */
   }
 
+  .text-action {
+    color: var(--action); /* Use for interactive text elements */
+  }
+
+  /* Background colors - use for containers, indicators */
   .bg-completed {
-    background-color: var(--completed);
+    background-color: var(--completed); /* Use for completed task indicators */
   }
 
   .bg-success {
-    background-color: var(--success);
+    background-color: var(--success); /* Use for success banners/alerts */
   }
 
   .bg-warning {
-    background-color: var(--warning);
+    background-color: var(--warning); /* Use for warning banners/alerts */
   }
 
   .bg-error {
-    background-color: var(--error);
+    background-color: var(--error); /* Use for error banners/alerts */
   }
-  .border-error {
-    border-color: var(--error);
-    border-width: 1px;
-    border-style: solid;
+
+  .bg-action {
+    background-color: var(--action); /* Use for action buttons */
   }
-  .border-success {
-    border-color: var(--success);
-    border-width: 1px;
-    border-style: solid;
-  }
-  .border-warning {
-    border-color: var(--warning);
-    border-width: 1px;
-    border-style: solid;
-  }
+
+  /* Border colors - use for outlines, separators */
   .border-completed {
     border-color: var(--completed);
     border-width: 1px;
     border-style: solid;
   }
-  
-  .text-action {
-    color: var(--action);
+
+  .border-success {
+    border-color: var(--success);
+    border-width: 1px;
+    border-style: solid;
   }
-  
-  .bg-action {
-    background-color: var(--action);
+
+  .border-warning {
+    border-color: var(--warning);
+    border-width: 1px;
+    border-style: solid;
   }
-  
+
+  .border-error {
+    border-color: var(--error);
+    border-width: 1px;
+    border-style: solid;
+  }
+
   .border-action {
     border-color: var(--action-border);
     border-width: 1px;
     border-style: solid;
   }
-  
+
+  /* Shadow utility class - use for focus/hover effects */
   .shadow-action {
     box-shadow: 0 0 12px var(--action-glow);
   }
+
 }

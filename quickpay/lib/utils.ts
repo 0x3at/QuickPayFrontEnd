@@ -47,3 +47,11 @@ export const infoToast = (message: string, description?: string) => {
     },
   })
 }
+
+
+// After the imports section, add this utility function
+export const formatDigits = (value: string): string => {
+	// Remove non-digit characters
+	const digitsOnly = value.replace(/\D/g, '');
+	return digitsOnly;
+};

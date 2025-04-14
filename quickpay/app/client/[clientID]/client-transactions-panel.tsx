@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -10,150 +10,173 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import {
-	Star,
-	MailIcon,
-	UserIcon,
-	CircleUserRoundIcon,
-	Building,
 	StickyNote,
+	Clock,
+	CheckCircle2,
+	XCircle,
+	FileText,
+	ArrowUpDown,
+	MoreHorizontal,
 } from 'lucide-react';
-import { getClient } from '@/hooks/api-hooks';
-import { ClientDetails } from '@/lib/types';
+import { ClientDetailResponseV2, TransactionV2 } from '@/lib/typesV2';
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from '@/components/ui/table';
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
+interface ClientTransactionsPanelProps {
+	clientID: number;
+	clientDetails: ClientDetailResponseV2;
+}
 
-export function ClientTransactionsPanel({ clientID }: { clientID: number }) {
-	const [clientDetails, setClientDetails] = useState<ClientDetails | null>(
-		null
-	);
-	const [isLoading, setIsLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
+// Helper function to format currency
+const formatCurrency = (amount: string): string => {
+	return new Intl.NumberFormat('en-US', {
+		style: 'currency',
+		currency: 'USD',
+	}).format(parseFloat(amount));
+};
 
-	useEffect(() => {
-		async function fetchClientData() {
-			try {
-				setIsLoading(true);
-				setError(null);
-				const data: ClientDetails = await getClient(clientID);
-				setClientDetails(data);
-			} catch (err) {
-				console.error('Failed to fetch client:', err);
-				setError('Could not load client details');
-			} finally {
-				setIsLoading(false);
-			}
-		}
+// Helper function to format date
+const formatDate = (dateString: string): string => {
+	return new Date(dateString).toLocaleDateString('en-US', {
+		year: 'numeric',
+		month: 'short',
+		day: 'numeric',
+	});
+};
 
-		fetchClientData();
-	}, [clientID]);
+export function ClientTransactionsPanel({ clientID, clientDetails }: ClientTransactionsPanelProps) {
+	const transactions = clientDetails.transactions || [];
 
 	// Loading state
-	if (isLoading) {
+	if (!clientDetails) {
 		return (
-			<div className='flex flex-row gap-4'>
-				<Card className='w-1/2 my-6 mx-auto'>
-					<CardHeader>
-						<CardTitle>Loading client information...</CardTitle>
-					</CardHeader>
-				</Card>
+			<div className="flex items-center justify-center h-64">
+				<Clock className="h-10 w-10 animate-spin text-primary" />
+				<div className="ml-4">Loading transaction data...</div>
 			</div>
 		);
 	}
 
-	// Error state
-	if (error) {
+	// Empty state
+	if (transactions.length === 0) {
 		return (
-			<div className='flex flex-row gap-4'>
-				<Card className='w-1/2 my-6 mx-auto'>
-					<CardHeader>
-						<CardTitle>Error</CardTitle>
-						<CardDescription>
-							{error || 'Failed to load client data'}
-						</CardDescription>
-					</CardHeader>
-				</Card>
-			</div>
-		);
-	}
-
-	console.log(clientDetails);
-	// Data loaded successfully
-	return (
-		<div className='flex flex-row gap-4'>
 			<Card>
 				<CardHeader>
-					<CardTitle>Notes</CardTitle>
+					<CardTitle>Transactions</CardTitle>
 					<CardDescription>
-						Client notes and important information
+						Payment transaction history for this client
 					</CardDescription>
 				</CardHeader>
 				<CardContent>
-					{clientDetails?.notes && clientDetails.notes.length > 0 ? (
-						<div className='space-y-4'>
-							{clientDetails.notes
-								.filter((note) => note.archived !== '1')
-								.map((note, index) => (
-									<Card
-										key={note.noteID || index}
-										className={`border ${
-											note.important === '1'
-												? 'border-amber-400'
-												: ''
-										}`}
-									>
-										<CardHeader className='pb-2'>
-											<div className='flex justify-between items-center'>
-												<div className='flex items-center gap-2'>
-													<StickyNote className='w-4 h-4' />
-													<CardTitle className='text-base'>
-														Note by {note.author}
-													</CardTitle>
-												</div>
-												{note.important.toLowerCase() ===
-													'true' && (
-													<Badge variant='default'>
-														Important
-													</Badge>
-												)}
-											</div>
-											<CardDescription>
-												{note.createdAt}
-											</CardDescription>
-										</CardHeader>
-										<CardContent className='pt-0'>
-											<p className='whitespace-pre-wrap'>
-												{note.note}
-											</p>
-										</CardContent>
-									</Card>
-								))}
-						</div>
-					) : (
-						<div className='text-center py-6 text-muted-foreground'>
-							No notes found
-						</div>
-					)}
+					<div className="flex flex-col items-center justify-center py-12 text-center">
+						<FileText className="h-12 w-12 text-muted-foreground mb-4" />
+						<h3 className="text-lg font-medium mb-2">
+							No Transactions Found
+						</h3>
+						<p className="text-muted-foreground max-w-md">
+							This client doesn't have any payment transactions yet.
+						</p>
+					</div>
 				</CardContent>
-				<CardFooter className='flex justify-between'>
-					<Button variant='outline' size='sm'>
-						Add Note
-					</Button>
-					<Button variant='ghost' size='sm'>
-						Show Archived
-					</Button>
-				</CardFooter>
 			</Card>
-		</div>
+		);
+	}
+
+	// Data loaded successfully
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle>Transaction History</CardTitle>
+				<CardDescription>
+					Payment transaction history for this client
+				</CardDescription>
+			</CardHeader>
+			<CardContent>
+				<div className="rounded-md border">
+					<Table>
+						<TableHeader>
+							<TableRow>
+								<TableHead>Date</TableHead>
+								<TableHead>Amount</TableHead>
+								<TableHead>Status</TableHead>
+								<TableHead>Entity</TableHead>
+								<TableHead>Invoice</TableHead>
+								<TableHead>Actions</TableHead>
+							</TableRow>
+						</TableHeader>
+						<TableBody>
+							{transactions.map((transaction, index) => (
+								<TableRow key={index}>
+									<TableCell>{formatDate(transaction.createdAt)}</TableCell>
+									<TableCell>{formatCurrency(transaction.amount)}</TableCell>
+									<TableCell>
+										{transaction.result === 'Success' ? (
+											<Badge variant='success' className='bg-success text-success-foreground'>
+												Success
+											</Badge>
+										) : (
+											<Badge variant='destructive' className='bg-destructive text-destructive-foreground'>
+												Failed
+											</Badge>
+										)}
+									</TableCell>
+									<TableCell>
+										{transaction.entity === 'wc'
+											? 'WholeSale Communications'
+											: transaction.entity === 'vbc'
+											? 'Voice Broadcasting'
+											: transaction.entity === 'cg'
+											? 'Contract Genie'
+											: transaction.entity}
+									</TableCell>
+									<TableCell>
+										{transaction.invoiceID ? (
+											<Badge variant='outline'>{transaction.invoiceID}</Badge>
+										) : (
+											<span className="text-muted-foreground text-xs">N/A</span>
+										)}
+									</TableCell>
+									<TableCell>
+										<DropdownMenu>
+											<DropdownMenuTrigger asChild>
+												<Button variant='ghost' className='h-8 w-8 p-0'>
+													<span className='sr-only'>Open menu</span>
+													<MoreHorizontal className='h-4 w-4' />
+												</Button>
+											</DropdownMenuTrigger>
+											<DropdownMenuContent align='end'>
+												<DropdownMenuLabel>Actions</DropdownMenuLabel>
+												<DropdownMenuItem onClick={() => navigator.clipboard.writeText(transaction.invoiceID?.toString() || '')}>
+													Copy Invoice ID
+												</DropdownMenuItem>
+												<DropdownMenuSeparator />
+												<DropdownMenuItem>View Transaction Details</DropdownMenuItem>
+											</DropdownMenuContent>
+										</DropdownMenu>
+									</TableCell>
+								</TableRow>
+							))}
+						</TableBody>
+					</Table>
+				</div>
+			</CardContent>
+		</Card>
 	);
 }

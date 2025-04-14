@@ -1,4 +1,5 @@
 'use client';
+
 import { useState, useEffect } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -10,28 +11,12 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import {
-	Star,
-	MailIcon,
-	UserIcon,
-	CircleUserRoundIcon,
-	Building,
-	CreditCard,
-	AlertCircle,
-} from 'lucide-react';
-import { getClient, setDefaultPaymentMethod } from '@/hooks/api-hooks';
-import { ClientDetails, PaymentProfile, entityNames } from '@/lib/types';
+import { CreditCard, AlertCircle, Plus, Trash2, Edit, Star } from 'lucide-react';
+import { setDefaultPaymentMethodV2, deletePaymentMethodV2 } from '@/hooks/apiv2-hooks';
+import { ClientDetailResponseV2, PaymentProfileV2 } from '@/lib/typesV2';
 import {
 	Dialog,
 	DialogContent,
@@ -41,16 +26,29 @@ import {
 	DialogTitle,
 } from '@/components/ui/dialog';
 import { errorToast, successToast } from '@/lib/utils';
+import { CardTypeIcon } from '@/components/card-type-icon';
+import { EntityIcon } from '@/components/entity-icon';
+import { EntityBadge } from '@/components/entity-badge';
+import { StatusBadge } from '@/components/status-badge';
+import { AddPaymentMethodDialog } from '@/components/add-payment-method-dialog';
+import { DeletePaymentMethodDialog } from '@/components/delete-payment-method-dialog';
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from '@/components/ui/tooltip';
 
-export function ClientPaymentMethodsPanel({ clientID }: { clientID: number }) {
-	const [clientDetails, setClientDetails] = useState<ClientDetails | null>(
-		null
-	);
-	const [isLoading, setIsLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
+interface ClientPaymentMethodsPanelProps {
+	clientID: number;
+	clientDetails: ClientDetailResponseV2;
+	onRefresh: () => void;
+}
+
+export function ClientPaymentMethodsPanel({ clientID, clientDetails, onRefresh }: ClientPaymentMethodsPanelProps) {
 	const [uniqueCards, setUniqueCards] = useState<{
 		[key: string]: {
-			card: PaymentProfile;
+			card: PaymentProfileV2;
 			entities: string[];
 			isDefault: boolean;
 		};
@@ -59,66 +57,73 @@ export function ClientPaymentMethodsPanel({ clientID }: { clientID: number }) {
 	// Default payment confirmation dialog state
 	const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
 	const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<{
-		card: PaymentProfile;
+		card: PaymentProfileV2;
 		entities: string[];
 	} | null>(null);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
+	// Add state for note dialog
+	const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
+	const [selectedNote, setSelectedNote] = useState<string | null>(null);
+
+	// Add state for add payment method dialog
+	const [isAddPaymentDialogOpen, setIsAddPaymentDialogOpen] = useState(false);
+
+	// Add state for delete payment method dialog
+	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+	const [selectedPaymentMethodForDelete, setSelectedPaymentMethodForDelete] = useState<PaymentProfileV2 | null>(null);
+
+	// Format date helper function
+	const formatDate = (dateString: string) => {
+		return new Date(dateString).toLocaleDateString('en-US', {
+			year: 'numeric',
+			month: 'short',
+			day: 'numeric',
+		});
+	};
+
+	// Process payment profiles whenever client details change
 	useEffect(() => {
-		fetchClientData();
-	}, [clientID]);
+		processPaymentProfiles();
+	}, [clientDetails]);
 
-	async function fetchClientData() {
-		try {
-			setIsLoading(true);
-			setError(null);
-			const data: ClientDetails = await getClient(clientID);
-			setClientDetails(data);
+	function processPaymentProfiles() {
+		// Group cards by their unique fingerprint
+		const cardGroups: {
+			[key: string]: {
+				card: PaymentProfileV2;
+				entities: string[];
+				isDefault: boolean;
+			};
+		} = {};
 
-			// Group cards by their unique fingerprint
-			const cardGroups: {
-				[key: string]: {
-					card: PaymentProfile;
-					entities: string[];
-					isDefault: boolean;
+		clientDetails.paymentProfiles.forEach((profile) => {
+			// Create a unique key using last four digits and billing details
+			const cardKey = `${profile.lastFour}-${profile.billingDetails.firstName}-${profile.billingDetails.lastName}`;
+
+			if (!cardGroups[cardKey]) {
+				cardGroups[cardKey] = {
+					card: profile,
+					entities: [profile.entity],
+					isDefault: String(profile.isDefault) === "true" || profile.isDefault === true,
 				};
-			} = {};
-
-			data.paymentProfiles.forEach((profile) => {
-				// Create a unique key using last four digits and billing details
-				const cardKey = `${profile.lastFour}-${profile.billingDetails.firstName}-${profile.billingDetails.lastName}`;
-
-				if (!cardGroups[cardKey]) {
-					cardGroups[cardKey] = {
-						card: profile,
-						entities: [profile.entity],
-						isDefault: profile.isDefault === 'True',
-					};
-				} else {
-					// Add entity to existing card if not already included
-					if (
-						!cardGroups[cardKey].entities.includes(profile.entity)
-					) {
-						cardGroups[cardKey].entities.push(profile.entity);
-					}
-					// Update default status if any profile is default
-					if (profile.isDefault === 'True') {
-						cardGroups[cardKey].isDefault = true;
-					}
+			} else {
+				// Add entity to existing card if not already included
+				if (!cardGroups[cardKey].entities.includes(profile.entity)) {
+					cardGroups[cardKey].entities.push(profile.entity);
 				}
-			});
+				// Update default status if any profile is default
+				if (String(profile.isDefault) === "true" || profile.isDefault === true) {
+					cardGroups[cardKey].isDefault = true;
+				}
+			}
+		});
 
-			setUniqueCards(cardGroups);
-		} catch (err) {
-			console.error('Failed to fetch client:', err);
-			setError('Could not load Payment Methods');
-		} finally {
-			setIsLoading(false);
-		}
+		setUniqueCards(cardGroups);
 	}
 
 	const handleSetDefaultClick = (cardGroup: {
-		card: PaymentProfile;
+		card: PaymentProfileV2;
 		entities: string[];
 		isDefault: boolean;
 	}) => {
@@ -134,273 +139,243 @@ export function ClientPaymentMethodsPanel({ clientID }: { clientID: number }) {
 
 		try {
 			setIsSubmitting(true);
-			const response = await setDefaultPaymentMethod(
+			await setDefaultPaymentMethodV2({
 				clientID,
-				selectedPaymentMethod.card.paymentProfileID
-			);
+				paymentProfileID: selectedPaymentMethod.card.paymentProfileID
+			});
 
-			if (response) {
-				successToast('Default payment method updated successfully');
-
-				// Update local state to reflect changes
-				// This updates the UI without needing a full refresh
-				setUniqueCards((prevCards) => {
-					const newCards = { ...prevCards };
-					// Set all cards to non-default
-					Object.keys(newCards).forEach((key) => {
-						newCards[key].isDefault = false;
-					});
-
-					// Find the card we just set as default and update it
-					const selectedCardKey = Object.keys(newCards).find(
-						(key) =>
-							newCards[key].card.paymentProfileID ===
-							selectedPaymentMethod.card.paymentProfileID
-					);
-
-					if (selectedCardKey) {
-						newCards[selectedCardKey].isDefault = true;
-					}
-
-					return newCards;
-				});
-
-				// Close the dialog
-				setIsConfirmDialogOpen(false);
-			} else {
-				errorToast('Failed to update default payment method');
-			}
+			// Close the dialog
+			setIsConfirmDialogOpen(false);
+			
+			// Refresh the client data after updating
+			onRefresh();
+			
 		} catch (error) {
 			console.error('Error setting default payment method:', error);
-			errorToast(
-				'An error occurred while updating default payment method'
-			);
+			errorToast('An error occurred while updating default payment method');
 		} finally {
 			setIsSubmitting(false);
 		}
 	};
 
-	// Loading state
-	if (isLoading) {
-		return (
-			<div className='flex flex-row gap-4'>
-				<Card className='w-1/2 my-6 mx-auto'>
-					<CardHeader>
-						<CardTitle>Loading client information...</CardTitle>
-					</CardHeader>
-				</Card>
-			</div>
-		);
-	}
+	// Add handler for note click
+	const handleNoteClick = (note: string) => {
+		setSelectedNote(note);
+		setIsNoteDialogOpen(true);
+	};
 
-	// Error state
-	if (error) {
-		return (
-			<div className='flex flex-row gap-4'>
-				<Card className='w-1/2 my-6 mx-auto'>
-					<CardHeader>
-						<CardTitle>Error</CardTitle>
-						<CardDescription>
-							{error || 'Failed to load client data'}
-						</CardDescription>
-					</CardHeader>
-				</Card>
-			</div>
-		);
-	}
+	// Add handler for delete button click
+	const handleDeleteClick = (profile: PaymentProfileV2) => {
+		setSelectedPaymentMethodForDelete(profile);
+		setIsDeleteDialogOpen(true);
+	};
 
-	console.log(clientDetails);
+	// Handle successful deletion
+	const handleDeleteSuccess = () => {
+		onRefresh();
+	};
+
+	// Get unique entity codes from entity mappings
+	const entityCodes = clientDetails.entityMappings.map(mapping => mapping.entityCode);
+	
 	// Data loaded successfully
 	return (
 		<>
-			<div className='flex flex-row gap-4 w-full'>
-				<Card className='w-full'>
-					<CardHeader>
-						<div className='flex flex-row justify-between items-center'>
-							<CardTitle>Payment Profiles</CardTitle>
-							<Button variant='action' size='sm'>
-								Add Payment Profile
+			<TooltipProvider>
+				<Card>
+					<CardHeader className='pb-3'>
+						<div className='flex flex-col md:flex-row justify-between items-start md:items-center gap-4'>
+							<CardTitle className='text-lg flex items-center'>
+								<CreditCard className='w-5 h-5 mr-2 text-primary' />
+								Payment Profiles
+							</CardTitle>
+
+							<Button 
+								variant='action'
+								onClick={() => setIsAddPaymentDialogOpen(true)}
+							>
+								<Plus className='h-4 w-4 mr-2' />
+								Add Payment Method
 							</Button>
 						</div>
-						<CardDescription>
-							Manage client payment methods
-						</CardDescription>
-						<Separator className='my-4' />
 					</CardHeader>
-					<CardContent className='w-full'>
+					
+					<CardContent>
 						{Object.keys(uniqueCards).length > 0 ? (
-							<div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+							<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
 								{Object.values(uniqueCards).map(
 									(cardGroup, index) => {
 										const profile = cardGroup.card;
 										return (
 											<Card
 												key={index}
-												className='border'
+												className='overflow-hidden'
 											>
-												<CardHeader className='pb-2'>
-													<div className='flex justify-between items-center'>
-														<div className='flex flex-col'>
-															<div className='flex items-center gap-2 mb-1'>
-																<CreditCard className='w-5 h-5 text-primary' />
-																<CardTitle className='text-lg'>
-																	{profile.cardType ||
-																		'Card'}{' '}
-																	••••{' '}
-																	{
-																		profile.lastFour
-																	}
-																</CardTitle>
-															</div>
-															<span className='text-xs text-muted-foreground'>
-																Expires:{' '}
-																{
-																	profile.expirationDate
+											
+												<CardHeader>
+												
+													<div className='flex justify-between items-center w-full'>
+														<div className='flex items-center gap-2'>
+															<CardTypeIcon
+																type={
+																	profile.cardType ||
+																	'Unknown'
 																}
+															/>
+																	<span className='font-medium cursor-help'>
+																		••••{' '}
+																		{profile.lastFour}
+																	</span>
+	
+														</div>
+														<div className='flex justify-between items-center w-2/3'>
+															{/* Default indicator/button - LEFT */}
+															<div>
+																{cardGroup.isDefault && (
+																	<span className="text-xs font-medium text-primary flex items-center">
+																		<Star className='h-3.5 w-3.5 mr-1 fill-primary' />
+																		Default
+																	</span>
+																)}
+															</div>
+															{/* Status badge - RIGHT */}
+															<div>
+																<StatusBadge
+																	status={
+																		profile.status === 'Active'
+																			? 'success'
+																			: 'error'
+																	}
+																>
+																	{profile.status}
+																</StatusBadge>
+															</div>
+														</div>
+													</div>
+												</CardHeader>
+													
+												<CardContent className='pt-3'>
+													<div className='space-y-3 text-sm'>
+														<div className='flex justify-between'>
+															<span className='text-muted-foreground'>
+																Entities:
+															</span>
+															<div className='flex flex-wrap justify-end gap-1 max-w-[70%]'>
+																{entityCodes.map((entity) => {
+																	// Find the specific payment profile for this entity if it exists
+																	const entityProfile = clientDetails.paymentProfiles.find(p => 
+																		p.entity === entity && 
+																		p.lastFour === profile.lastFour && 
+																		p.billingDetails.firstName === profile.billingDetails.firstName &&
+																		p.billingDetails.lastName === profile.billingDetails.lastName
+																	);
+																	
+																	return (
+																		<Tooltip key={`tooltip-${entity}`}>
+																			<TooltipTrigger asChild>
+																				<div>
+																					<EntityBadge
+																						key={`badge-${entity}`}
+																						entity={entity}
+																						active={cardGroup.entities.includes(entity)}
+																						className='text-xs'
+																					/>
+																				</div>
+																			</TooltipTrigger>
+																			<TooltipContent 
+																				className={`text-xs ${
+																					cardGroup.entities.includes(entity)
+																						? 'bg-success text-foreground-secondary'
+																						: 'bg-destructive/90 text-destructive-foreground'
+																				}`}
+																			>
+																				{cardGroup.entities.includes(entity) 
+																					? `ID: ${entityProfile?.paymentProfileID || 'Unknown'}`
+																					: `Not connected to ${entity}`}
+																			</TooltipContent>
+																		</Tooltip>
+																	);
+																})}
+															</div>
+														</div>
+
+														<div className='flex justify-between'>
+															<span className='text-muted-foreground'>
+																Name:
+															</span>
+															<span className='font-medium'>
+																{profile.billingDetails.firstName}{' '}
+																{profile.billingDetails.lastName}
 															</span>
 														</div>
-														<div className='flex flex-col items-end gap-1'>
-															<div className='flex-row gap-2 grid grid-cols-2 justify-end'>
-																<div className='flex flex-row gap-2 justify-end'>
-																{cardGroup.isDefault && (
-																	<Badge variant='default' className='bg-amber-400 text-secondary-foreground'>
-																		Default
-																	</Badge>
-																)}
-																</div>
-																<div className='flex flex-row gap-2'>
-																	<Badge
-																		variant='default'
-																		className={`${
-																			profile.status ===
-																			'Active'
-																				? 'bg-success'
-																				: 'bg-destructive'
-																		} text-secondary-foreground`}
-																	>
-																		{profile.gateway ===
-																		'authnet'
-																			? 'Authorize.net'
-																			: profile.gateway}
-																	</Badge>
-																</div>
-															</div>
-														</div>
-													</div>
-													<Separator className='my-1' />
-												</CardHeader>
 
-												<CardContent className='py-0 space-y-4'>
-													{/* Billing Information */}
-													<div>
-														<Label className='text-sm font-medium text-muted-foreground block mb-2'>
-															BILLING DETAILS
-														</Label>
-														<div className='pl-2 text-sm'>
-															<div className='font-medium'>
-																{
-																	profile
-																		.billingDetails
-																		.firstName
-																}{' '}
-																{
-																	profile
-																		.billingDetails
-																		.lastName
-																}
-															</div>
-															<div className='flex flex-row gap-2'>
-																<div className='text-muted-foreground'>
-																	{
-																		profile
-																			.billingDetails
-																			.streetAddress
-																	}
-																	{','}
-																	{
-																		profile
-																			.billingDetails
-																			.zipCode
-																	}
-																</div>
-															</div>
-															{profile.note && (
-																<div className='text-muted-foreground mt-1'>
-																	{
-																		profile.note
-																	}
-																</div>
-															)}
+														<div className='flex justify-between'>
+															<span className='text-muted-foreground'>
+																Address:
+															</span>
+															<span className='font-medium text-right'>
+																{profile.billingDetails.streetAddress},
+																{' '}{profile.billingDetails.zipCode}
+															</span>
 														</div>
-													</div>
 
-													{/* Entities */}
-													<div>
-														<Label className='text-sm font-medium text-muted-foreground block mb-2'>
-															CONNECTED ENTITIES
-														</Label>
-														<div className='flex flex-wrap gap-1 pl-2'>
-															{Object.keys(
-																entityNames
-															).map((entity) => (
-																<Badge
-																	key={entity}
-																	className={`${
-																		cardGroup.entities.includes(
-																			entity
-																		)
-																			? 'bg-completed'
-																			: 'bg-destructive opacity-50'
-																	}`}
+														<div className='flex justify-between'>
+															<span className='text-muted-foreground'>
+																Expires:
+															</span>
+															<span className='font-medium'>
+																{profile.expirationDate}
+															</span>
+														</div>
+
+														<div className='flex justify-between'>
+															<span className='text-muted-foreground'>
+																Created:
+															</span>
+															<span>
+																{formatDate(profile.createdAt)}
+															</span>
+														</div>
+
+														{profile.note && (
+															<div className='pt-2 border-t'>
+																<p 
+																	className='text-xs text-muted-foreground italic truncate cursor-pointer hover:text-primary transition-colors'
+																	onClick={() => handleNoteClick(profile.note)}
+																	title="Click to view full note"
 																>
-																	{
-																		entityNames[
-																			entity as keyof typeof entityNames
-																		]
-																	}
-																</Badge>
-															))}
-														</div>
+																	{profile.note}
+																</p>
+															</div>
+														)}
 													</div>
-
-													{/* Creation Info */}
 												</CardContent>
-
-												<CardFooter className='flex justify-between space-x-2 pt-4 border-t grid-cols-2 gap-2'>
-													<div className='justify-start col-span-1'>
-														<Label className='text-sm font-medium text-muted-foreground block mb-2'>
-															Metadata
-														</Label>
-														<div className='pl-2 text-xs text-muted-foreground'>
-															Created on{' '}
-															{new Date(
-																profile.createdAt
-															).toLocaleDateString()}{' '}
-															by{' '}
-															{profile.createdBy ||
-																'System'}
-														</div>
-													</div>
-													<div className='justify-end col-span-1'>
+												<CardFooter className='flex justify-between items-center px-4 py-2'>
+													{/* Set Default button - LEFT */}
+													<div>
 														{!cardGroup.isDefault && (
 															<Button
-																variant='action'
-																size='sm'
-																onClick={() =>
-																	handleSetDefaultClick(
-																		cardGroup
-																	)
-																}
+																variant='ghost'
+																size='icon'
+																onClick={() => handleSetDefaultClick(cardGroup)}
+																title="Set as Default Payment Method"
+																className="text-primary hover:text-primary hover:bg-primary/10 h-7 w-7"
 															>
-																Set Default
+																<Star className='h-3.5 w-3.5' />
 															</Button>
 														)}
+													</div>
+													
+													{/* Delete button - RIGHT */}
+													<div>
 														<Button
-															size='sm'
-															variant='destructive'
-															className='ml-2'
+															variant='ghost'
+															size='icon'
+															className='text-destructive hover:text-destructive hover:bg-destructive/10'
+															title="Delete Payment Method"
+															onClick={() => handleDeleteClick(profile)}
 														>
-															Delete
+															<Trash2 className='h-4 w-4' />
 														</Button>
 													</div>
 												</CardFooter>
@@ -410,128 +385,166 @@ export function ClientPaymentMethodsPanel({ clientID }: { clientID: number }) {
 								)}
 							</div>
 						) : (
-							<div className='w-fulltext-center py-6 text-muted-foreground'>
-								No payment profiles found
+							<div className='flex flex-col items-center justify-center py-12 text-center'>
+								<CreditCard className='h-12 w-12 text-muted-foreground mb-4' />
+								<h3 className='text-lg font-medium mb-2'>
+									No Payment Profiles Found
+								</h3>
+								<p className='text-muted-foreground mb-6 max-w-md'>
+									This client doesn't have any payment profiles
+									yet. Add one to get started.
+								</p>
+								<Button onClick={() => setIsAddPaymentDialogOpen(true)}>
+									<Plus className='h-4 w-4 mr-2' />
+									Add Payment Profile
+								</Button>
 							</div>
 						)}
 					</CardContent>
-					<CardFooter></CardFooter>
 				</Card>
-			</div>
 
-			{/* Confirmation Dialog */}
-			<Dialog
-				open={isConfirmDialogOpen}
-				onOpenChange={setIsConfirmDialogOpen}
-			>
-				<DialogContent className='sm:max-w-md'>
-					<DialogHeader>
-						<DialogTitle className='flex items-center gap-2'>
-							<AlertCircle className='h-5 w-5 text-warning' />
-							Confirm Default Payment Method
-						</DialogTitle>
-						<DialogDescription>
-							Are you sure you want to set this payment method as
-							the default? This will replace any prior default
-							payment method.
-						</DialogDescription>
-					</DialogHeader>
-
-					{selectedPaymentMethod && (
-						<div className='py-4'>
-							<div className='grid grid-cols-3 items-center gap-2 mb-4'>
-								<div className='col-span-2 flex items-center gap-2'>
-									<CreditCard className='h-5 w-5' />
-									<span className='font-semibold'>
-										{selectedPaymentMethod.card.cardType ||
-											'Card'}{' '}
-										••••{' '}
-										{selectedPaymentMethod.card.lastFour}
-									</span>
+				{/* Confirmation Dialog */}
+				<Dialog
+					open={isConfirmDialogOpen}
+					onOpenChange={setIsConfirmDialogOpen}
+				>
+					<DialogContent className='sm:max-w-md'>
+						<DialogHeader>
+							<DialogTitle className='flex items-center gap-2'>
+								<AlertCircle className='h-5 w-5 text-warning' />
+								Confirm Default Payment Method
+							</DialogTitle>
+							<DialogDescription>
+								Are you sure you want to set this payment method as
+								the default? This will replace any prior default
+								payment method.
+							</DialogDescription>
+						</DialogHeader>
+						{selectedPaymentMethod && (
+							<div className='py-4'>
+								<div className='grid grid-cols-3 items-center gap-2 mb-4'>
+									<div className='col-span-2 flex items-center gap-2'>
+										<CardTypeIcon
+											type={
+												selectedPaymentMethod.card
+													.cardType || 'Unknown'
+											}
+										/>
+										<span className='font-semibold'>
+											{selectedPaymentMethod.card.cardType ||
+												'Card'}{' '}
+											••••{' '}
+											{selectedPaymentMethod.card.lastFour}
+										</span>
+									</div>
+									<div className='col-span-1 flex justify-end'>
+										<Badge
+											variant={
+												selectedPaymentMethod.card
+													.status === 'Active'
+													? 'success'
+													: 'error'
+											}
+										>
+											{selectedPaymentMethod.card.status}
+										</Badge>
+									</div>
 								</div>
-								<div className='col-span-1 flex justify-end'>
-									<Badge
-										variant='default'
-										className={`${
-											selectedPaymentMethod.card
-												.status === 'Active'
-												? 'bg-success'
-												: 'bg-destructive'
-										} text-secondary-foreground`}
-									>
-										{selectedPaymentMethod.card.gateway ===
-										'authnet'
-											? 'Authorize.net'
-											: selectedPaymentMethod.card
-													.gateway}
-									</Badge>
+								<div className='grid grid-cols-2 gap-2 text-sm mb-3'>
+									<div>
+										<Label className='text-md font-medium'>
+											Name
+										</Label>{' '}
+										<Separator className='my-1' />
+										{selectedPaymentMethod.card.billingDetails.firstName}{' '}
+										{selectedPaymentMethod.card.billingDetails.lastName}
+									</div>
+									<div>
+										<Label className='text-md font-medium'>
+											Expires
+										</Label>{' '}
+										<Separator className='my-1' />
+										{selectedPaymentMethod.card.expirationDate}
+									</div>
 								</div>
-							</div>
 
-							<div className='grid grid-cols-2 gap-2 text-sm mb-3'>
-								<div>
+								<div className='mt-4'>
 									<Label className='text-md font-medium'>
-										Name
-									</Label>{' '}
+										Entities
+									</Label>
 									<Separator className='my-1' />
-									{
-										selectedPaymentMethod.card
-											.billingDetails.firstName
-									}{' '}
-									{
-										selectedPaymentMethod.card
-											.billingDetails.lastName
-									}
-								</div>
-								<div>
-									<Label className='text-md font-medium'>
-										Expires
-									</Label>{' '}
-									<Separator className='my-1' />
-									{selectedPaymentMethod.card.expirationDate}
-								</div>
-							</div>
-
-							<div className='mt-4'>
-								<Label className='text-md font-medium'>
-									Entities
-								</Label>
-								<Separator className='my-1' />
-								<div className='flex flex-wrap gap-1 mt-2'>
-									{selectedPaymentMethod.entities.map(
-										(entity) => (
-											<Badge
+									<div className='flex flex-wrap gap-1 mt-2'>
+										{entityCodes.map((entity) => (
+											<EntityBadge
 												key={entity}
-												className='bg-completed'
-											>
-												{entityNames[
-													entity as keyof typeof entityNames
-												] || entity}
-											</Badge>
-										)
-									)}
+												entity={entity}
+												active={selectedPaymentMethod.entities.includes(entity)}
+											/>
+										))}
+									</div>
 								</div>
 							</div>
-						</div>
-					)}
+						)}
+						<DialogFooter className='sm:justify-between'>
+							<Button
+								variant='outline'
+								onClick={() => setIsConfirmDialogOpen(false)}
+							>
+								Cancel
+							</Button>
+							<Button
+								variant='default'
+								onClick={handleConfirmSetDefault}
+								disabled={isSubmitting}
+							>
+								{isSubmitting ? 'Processing...' : 'Confirm'}
+							</Button>
+						</DialogFooter>
+					</DialogContent>
+				</Dialog>
 
-					<DialogFooter className='sm:justify-between'>
-						<Button
-							variant='outline'
-							onClick={() => setIsConfirmDialogOpen(false)}
-						>
-							Cancel
-						</Button>
-						<Button
-							variant='action'
-							onClick={handleConfirmSetDefault}
-							disabled={isSubmitting}
-						>
-							{isSubmitting ? 'Processing...' : 'Confirm'}
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
+				{/* Note Dialog */}
+				<Dialog
+					open={isNoteDialogOpen}
+					onOpenChange={setIsNoteDialogOpen}
+				>
+					<DialogContent className='sm:max-w-md'>
+						<DialogHeader>
+							<DialogTitle>Payment Method Note</DialogTitle>
+						</DialogHeader>
+						<div className='py-4'>
+							<p className='text-sm whitespace-pre-wrap'>{selectedNote}</p>
+						</div>
+						<DialogFooter>
+							<Button
+								variant='outline'
+								onClick={() => setIsNoteDialogOpen(false)}
+							>
+								Close
+							</Button>
+						</DialogFooter>
+					</DialogContent>
+				</Dialog>
+
+				{/* Add Payment Method Dialog */}
+				<AddPaymentMethodDialog
+					isOpen={isAddPaymentDialogOpen}
+					onOpenChange={setIsAddPaymentDialogOpen}
+					clientID={clientID}
+					onSubmitSuccess={onRefresh}
+				/>
+
+				{/* Delete Payment Method Dialog */}
+				{selectedPaymentMethodForDelete && (
+					<DeletePaymentMethodDialog
+						isOpen={isDeleteDialogOpen}
+						onOpenChange={setIsDeleteDialogOpen}
+						clientID={clientID}
+						paymentProfile={selectedPaymentMethodForDelete as any}
+						onDeleteSuccess={handleDeleteSuccess}
+					/>
+				)}
+			</TooltipProvider>
 		</>
 	);
 }

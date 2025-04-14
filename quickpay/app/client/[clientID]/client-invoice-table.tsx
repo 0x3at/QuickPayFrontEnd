@@ -35,16 +35,12 @@ import {
 	TableHeader,
 	TableRow,
 } from '@/components/ui/table';
-import { EditClientDialog } from '@/components/edit-client-popup';
 import Link from 'next/link';
-import {
-	getClientInvoiceList,
-	getInvoiceList,
-	InvoiceList,
-} from '@/hooks/api-hooks';
-import { Invoice } from '@/lib/types';
+import { useClientInvoicesV2 } from '@/hooks/apiv2-hooks';
+import { ClientDetailResponseV2, InvoiceV2 } from '@/lib/typesV2';
+import { InvoiceDetailsDialog } from './invoice-details-dialog';
 
-export const columns: ColumnDef<Invoice>[] = [
+export const columns: ColumnDef<InvoiceV2>[] = [
 	{
 		accessorKey: 'invoiceID',
 		header: ({ column }) => {
@@ -73,7 +69,7 @@ export const columns: ColumnDef<Invoice>[] = [
 			</div>
 		),
 		filterFn: (row, id, filterValue) => {
-			const invoiceId = row.getValue(id) as number;
+			const invoiceId = row.getValue(id) as string;
 			const searchValue = String(filterValue).toLowerCase();
 			return String(invoiceId).toLowerCase().includes(searchValue);
 		},
@@ -193,7 +189,7 @@ export const columns: ColumnDef<Invoice>[] = [
 		cell: ({ row }) => {
 			const collected = row.getValue('collected');
 
-			if (collected === 'true' || 'True') {
+			if (collected === true) {
 				return (
 					<Badge
 						variant='default'
@@ -263,8 +259,8 @@ export const columns: ColumnDef<Invoice>[] = [
 							</DropdownMenuItem>
 							<DropdownMenuSeparator />
 							<DropdownMenuItem>Edit Invoice</DropdownMenuItem>
-							<DropdownMenuItem>
-								View Invoice Details
+							<DropdownMenuItem asChild>
+								<Link href={`/invoice/${invoice.invoiceID}`}>View Invoice Details</Link>
 							</DropdownMenuItem>
 						</DropdownMenuContent>
 					</DropdownMenu>
@@ -274,35 +270,30 @@ export const columns: ColumnDef<Invoice>[] = [
 	},
 ];
 
-export function InvoiceTable({ clientID }: { clientID: number }) {
+interface InvoiceTableProps {
+    clientID: number;
+    clientDetails: ClientDetailResponseV2;
+}
+
+export function InvoiceTable({ clientID, clientDetails }: InvoiceTableProps) {
 	const [sorting, setSorting] = React.useState<SortingState>([]);
-	const [columnFilters, setColumnFilters] =
-		React.useState<ColumnFiltersState>([]);
-	const [columnVisibility, setColumnVisibility] =
-		React.useState<VisibilityState>({});
+	const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+	const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
 	const [rowSelection, setRowSelection] = React.useState({});
-	const [data, setData] = React.useState<InvoiceList>();
-	const [isLoading, setIsLoading] = React.useState(true);
-
-	React.useEffect(() => {
-		async function fetchInvoices() {
-			try {
-				setIsLoading(true);
-				const invoiceList = await getClientInvoiceList(clientID);
-				setData(invoiceList);
-			} catch (err) {
-				console.error('Failed to fetch invoices:', err);
-			} finally {
-				setIsLoading(false);
-			}
-		}
-
-		fetchInvoices();
-	}, []);
+	
+	// Use the V2 client invoices hook
+	const { 
+        data, 
+        isLoading, 
+        error,
+        refetch: refreshInvoices
+    } = useClientInvoicesV2(clientID);
+	
+	const invoices = data?.invoices || [];
 
 	// Always call useReactTable, even if data isn't loaded yet
 	const table = useReactTable({
-		data: data?.invoices || [], // Provide empty array as fallback
+		data: invoices,
 		columns,
 		onSortingChange: setSorting,
 		onColumnFiltersChange: setColumnFilters,
@@ -327,7 +318,11 @@ export function InvoiceTable({ clientID }: { clientID: number }) {
 				<div className='w-full p-4 text-center'>
 					Loading invoice data...
 				</div>
-			) : !data?.invoices || data.invoices.length === 0 ? (
+			) : error ? (
+				<div className='w-full p-4 text-center text-error'>
+					Error loading invoice data
+				</div>
+			) : invoices.length === 0 ? (
 				<div className='w-full p-4 text-center'>
 					No invoice data available
 				</div>

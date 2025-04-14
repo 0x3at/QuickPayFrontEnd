@@ -1,5 +1,6 @@
 'use client'
-import { Client, editClient } from "@/hooks/api-hooks"
+import { Client } from "@/hooks/api-hooks"
+import { editClientV2 } from "@/hooks/apiv2-hooks"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
@@ -30,7 +31,8 @@ import {
 } from "@/components/ui/select"
 import { useState, useEffect } from "react"
 import { errorToast, successToast } from "@/lib/utils"
-import { useSalesReps } from "@/hooks/api-hooks"
+import { useSalespeopleV2 } from "@/hooks/apiv2-hooks"
+import { EditClientPayloadV2 } from "@/lib/typesV2"
 
 // Simplified props without the callback
 export function EditClientDialog({ 
@@ -40,15 +42,15 @@ export function EditClientDialog({
 }: { 
   open: boolean, 
   onOpenChange: (open: boolean) => void, 
-  client: Client
+  client: any
 }) {
-  // Use the sales reps hook
-  const { data, isLoading: isLoadingSalesReps, error } = useSalesReps();
+  // Use the sales reps hook with V2 API
+  const { data, isLoading: isLoadingSalesReps, error } = useSalespeopleV2();
   const salesReps = data?.salespeople || [];
   
-  // Define form schema with validation
+  // Define form schema with validation matching backend serializer
   const formSchema = z.object({
-    clientID: z.coerce.number({
+    clientID: z.number({
       required_error: "Client ID is required",
       invalid_type_error: "Client ID must be a number",
     }).min(1, "Client ID must be at least 1"),
@@ -56,7 +58,7 @@ export function EditClientDialog({
     primaryContact: z.string().min(2, "Primary contact name is required"),
     email: z.string().email("Please enter a valid email address"),
     clientStatus: z.string().min(1, "Status is required"),
-    salesperson: z.string().min(2, "Sales representative is required"),
+    salesPerson: z.string().min(2, "Sales representative is required"),
   });
 
   type FormValues = z.infer<typeof formSchema>
@@ -65,13 +67,12 @@ export function EditClientDialog({
     resolver: zodResolver(formSchema),
     mode: "onChange",
     defaultValues: {
-      clientID: parseInt(client.clientID.toString()),
+      clientID: client.clientID,
       companyName: client.companyName,
       primaryContact: client.primaryContact,
       email: client.email,
       clientStatus: client.clientStatus,
-      // If client.salesperson doesn't exist, default to empty or first rep
-      salesperson: (client as any).salesPerson || salesReps[0] || "",
+      salesPerson: client.salesPerson || "",
     }
   });
 
@@ -79,35 +80,41 @@ export function EditClientDialog({
   useEffect(() => {
     if (open) {
       form.reset({
-        clientID: parseInt(client.clientID.toString()),
+        clientID: client.clientID,
         companyName: client.companyName,
         primaryContact: client.primaryContact,
         email: client.email,
         clientStatus: client.clientStatus,
-        salesperson: (client as any).salesPerson || salesReps[0] || "",
+        salesPerson: client.salesPerson || "",
       });
     }
-  }, [open, client, form, salesReps]);
+  }, [open, client, form]);
 
   const { formState } = form;
   const { isValid, isDirty, isSubmitting } = formState;
 
   async function onSubmit(data: FormValues) {
     try {
-      const clientDetails = await editClient(data);
-      console.log(clientDetails);
+      // Create the payload matching the V2 API expectations
+      const payload: EditClientPayloadV2 = {
+        clientID: data.clientID,
+        primaryContact: data.primaryContact,
+        companyName: data.companyName,
+        salesPerson: data.salesPerson,
+        email: data.email,
+        clientStatus: data.clientStatus
+      };
       
-      if (clientDetails.client.clientID) {
-        successToast(`Client ${data.clientID} updated successfully`);
-        
-        // Close the dialog before refreshing
-        onOpenChange(false);
-        
-        // Force a complete page refresh to reload all data
-        window.location.reload();
-      } else {
-        errorToast("Failed to update client");
-      }
+      // Call the V2 API edit function
+      await editClientV2(data.clientID, payload);
+      
+      successToast(`Client ${data.clientID} updated successfully`);
+      
+      // Close the dialog
+      onOpenChange(false);
+      
+      // Refresh the page to show updated data
+      window.location.reload();
     } catch (error) {
       console.error("Failed to update client:", error);
       errorToast("Failed to update client");
@@ -199,7 +206,7 @@ export function EditClientDialog({
               
               <FormField
                 control={form.control}
-                name="salesperson"
+                name="salesPerson"
                 render={({ field }) => (
                   <FormItem className="grid grid-cols-4 items-center gap-4">
                     <FormLabel className="text-right">Sales Representative</FormLabel>
@@ -244,6 +251,7 @@ export function EditClientDialog({
                       <SelectContent>
                         <SelectItem value="Active">Active</SelectItem>
                         <SelectItem value="Inactive">Inactive</SelectItem>
+                        <SelectItem value="Pending">Pending</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage className="col-span-3 col-start-2" />

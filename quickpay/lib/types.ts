@@ -70,17 +70,59 @@ export type Invoice = {
 };
 
 export type Note = {
-	clientID: string;
+	clientID: string | number;
 	note: string;
 	author: string;
 	important: string;
-	noteID: string;
-	createdAt: string;
-	archived: string;
+	noteID: string | null;
+	createdAt: string | null;
+	archived: string | null;
 };
 
 export const entityNames = {
 	wc: 'WholeSale Communications',
 	cg: 'Contract Genie',
 	vbc: 'Voice Broadcasting',
+};
+
+// Define the PaymentMethodPayload type
+export type PaymentMethodPayload = {
+    billingDetails: {
+        firstName: string;
+        lastName: string;
+        streetAddress: string;
+        zipCode: string;
+    };
+    CardDetails: {
+        cardCode: string;
+        cardNumber: string;
+        expirationDate: string;
+    };
+    clientID: number;
+    note?: string;
+};
+
+// Define the response type
+export type PaymentProfileResponse = {
+    entities: Array<{[key: string]: string}>;
+    clientID: number;
+    paymentProfiles: Array<{
+        isDefault: boolean;
+        gateway: string;
+        entity: string;
+        status: string;
+        note: string;
+        createdAt: string;
+        expirationDate: string;
+        customerProfileID: string;
+        paymentProfileID: string;
+        cardType: string;
+        lastFour: string;
+        billingDetails: {
+            firstName: string;
+            lastName: string;
+            streetAddress: string;
+            zipCode: string;
+        }
+    }>;
 };
