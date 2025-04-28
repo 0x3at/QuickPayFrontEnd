@@ -219,6 +219,7 @@ export interface CreatePaymentProfilePayloadV2 {
 export interface SetDefaultPaymentMethodPayloadV2 {
   clientID: number;
   paymentProfileID: string;
+  customerProfileID: string;
 }
 
 export interface DeletePaymentMethodPayloadV2 {
